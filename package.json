@@ -4,7 +4,7 @@
   "description": "앱인벤터 aia 뷰어 · 실행기 · 채점기 (브라우저 전용 정적 웹앱)",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node -e \"require('fs').copyFileSync('dist/index.html','aia-checker.html')\"",
     "preview": "vite preview",
     "test": "vitest run",
     "build:fixtures": "node scripts/build-fixtures.mjs",
@@ -23,6 +23,7 @@
     "jsdom": "^25.0.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^2.1.9"
   },
   "dependencies": {

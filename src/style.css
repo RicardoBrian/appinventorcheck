@@ -121,3 +121,7 @@ button { font: inherit; }
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; }
 }
+
+/* 스크립트가 시작되지 않았을 때만 보이는 안내 (app-ready 클래스가 붙으면 숨김) */
+.load-error { padding: 16px; margin: 12px; border: 2px solid var(--error); border-radius: 8px; background: #fff4f0; }
+.app-ready .load-error { display: none; }

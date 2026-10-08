@@ -1,4 +1,4 @@
-// 테스트·시연용 .aia 파일을 만든다 (tests/fixtures/*.aia, public/samples/*.aia).
+// 테스트·시연용 .aia 파일을 만든다 (tests/fixtures/*.aia, src/samples/*.aia).
 //   node scripts/build-fixtures.mjs
 // .scm/.bky 형식은 App Inventor 가 내보내는 파일과 같게 맞췄다 (블록 type·mutation 은 appinventor-sources 기준).
 import fs from 'node:fs';
@@ -7,7 +7,7 @@ import zlib from 'node:zlib';
 import JSZip from 'jszip';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
-const outDirs = [path.join(here, '../tests/fixtures'), path.join(here, '../public/samples')];
+const outDirs = [path.join(here, '../tests/fixtures'), path.join(here, '../src/samples')];
 
 // ───────── .bky XML 빌더 ─────────
 let seq = 0;

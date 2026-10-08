@@ -13,20 +13,27 @@ interface Entry {
   error?: string;
 }
 
+// 예제 파일은 빌드할 때 HTML 안에 data: URL 로 들어간다 (file:// 로 열어도 읽힘)
+import oxUrl from '../samples/ox-quiz.aia?url';
+import rpsUrl from '../samples/rock-paper-scissors.aia?url';
+import fortuneUrl from '../samples/fortune.aia?url';
+
 const SAMPLES = [
-  ['O/X 퀴즈', 'samples/ox-quiz.aia'],
-  ['가위바위보', 'samples/rock-paper-scissors.aia'],
-  ['오늘의 운세', 'samples/fortune.aia'],
+  ['O/X 퀴즈', oxUrl, 'ox-quiz.aia'],
+  ['가위바위보', rpsUrl, 'rock-paper-scissors.aia'],
+  ['오늘의 운세', fortuneUrl, 'fortune.aia'],
 ] as const;
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 
 export function startApp() {
+  document.documentElement.classList.add('app-ready');
   const entries: Entry[] = [];
   let seq = 0;
   let current: Entry | null = null;
   let currentScreen: string | null = null;
   let assetUrls = new Map<string, string>();
+  let assetsOwner: AiaProject | null = null;
   let blocks: BlocksView | null = null;
 
   const fileList = $('#file-list');
@@ -65,7 +72,7 @@ export function startApp() {
   window.addEventListener('drop', (e) => e.preventDefault());
 
   const samplesBox = $('#samples');
-  for (const [label, url] of SAMPLES) {
+  for (const [label, url, fileName] of SAMPLES) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'link-button';
@@ -73,7 +80,7 @@ export function startApp() {
     b.addEventListener('click', async () => {
       const res = await fetch(url);
       const blob = await res.blob();
-      addFiles([new File([blob], url.split('/').pop()!)]);
+      addFiles([new File([blob], fileName)]);
     });
     samplesBox.appendChild(b);
   }
@@ -157,8 +164,8 @@ export function startApp() {
   }
 
   function revokeAssets() {
-    for (const u of assetUrls.values()) URL.revokeObjectURL(u);
     assetUrls = new Map();
+    assetsOwner = null;
   }
 
   function select(e: Entry) {
@@ -172,9 +179,12 @@ export function startApp() {
       return;
     }
     const p = e.project!;
-    if (changed || !currentScreen || !p.screens.some((s) => s.name === currentScreen)) {
+    // 읽기가 끝난 뒤 다시 select 될 수도 있으므로 "어느 프로젝트의 assets 인지"로 판단한다
+    if (assetsOwner !== p || changed || !currentScreen || !p.screens.some((s) => s.name === currentScreen)) {
+      assetsOwner = p;
       revokeAssets();
-      for (const [name, data] of p.assets) assetUrls.set(name, URL.createObjectURL(new Blob([data as BlobPart], { type: mimeOf(name) })));
+      // blob: URL 은 file:// 로 연 페이지에서 그림이 안 나오는 경우가 있어 data: URL 을 쓴다
+      for (const [name, data] of p.assets) assetUrls.set(name, `data:${mimeOf(name)};base64,${toBase64(data)}`);
       currentScreen = p.screens[0]?.name ?? null;
     }
     renderScreenTabs(p);
@@ -258,6 +268,8 @@ export function startApp() {
   }
 
   // ───── 블록 도구 ─────
+  $('#btn-zoom-in').addEventListener('click', () => blocks?.zoom(1));
+  $('#btn-zoom-out').addEventListener('click', () => blocks?.zoom(-1));
   $('#btn-fit').addEventListener('click', () => blocks?.zoomToFit());
   $('#btn-cleanup').addEventListener('click', () => blocks?.cleanUp());
   window.addEventListener('resize', () => blocks?.resize());
@@ -291,6 +303,12 @@ function mimeOf(name: string) {
       m4a: 'audio/mp4',
     } as Record<string, string>
   )[ext ?? ''] ?? 'application/octet-stream';
+}
+
+function toBase64(data: Uint8Array) {
+  let bin = '';
+  for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode(...data.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
 
 function escapeHtml(s: string) {

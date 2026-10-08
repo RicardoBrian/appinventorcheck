@@ -4,8 +4,8 @@ MIT App Inventor 프로젝트 파일(.aia)을 브라우저에서 열어
 **블록 코드를 앱인벤터 한국어 화면과 같은 모양으로 보고**, (단계 2) 앱을 실행해 보고, (단계 3) 채점 항목을 자동으로 확인하는 정적 웹앱입니다.
 
 - 서버가 없습니다. 학생 파일은 브라우저 메모리 안에서만 처리되고 외부로 전송되지 않습니다.
-- 빌드 결과(`dist/`)는 정적 파일이라 GitHub Pages, Firebase Hosting 어디에나 올릴 수 있습니다 (상대 경로로 빌드).
-- Blockly 아이콘(확대/축소 등)도 `public/blockly-media/`에 포함되어 있어 외부 CDN에 접속하지 않습니다.
+- 빌드 결과는 JS·CSS·예제가 모두 들어간 HTML 한 파일입니다. 더블클릭으로 열어도 되고, GitHub Pages·Firebase Hosting에 그대로 올려도 됩니다.
+- 외부 CDN이나 서버에 접속하지 않습니다.
 
 ## 진행 상황
 
@@ -17,11 +17,20 @@ MIT App Inventor 프로젝트 파일(.aia)을 브라우저에서 열어
 
 ## 사용법
 
+### 그냥 쓰기 (설치 없음)
+
+저장소의 **`aia-checker.html`** 파일 하나만 내려받아 더블클릭하면 크롬/엣지에서 바로 열립니다.
+(프로그램·예제가 모두 이 파일 안에 들어 있고, 인터넷 연결도 필요 없습니다.)
+
+> 저장소 맨 위의 `index.html` 은 개발용 원본이라 직접 열면 동작하지 않습니다.
+
+### 개발
+
 ```bash
 npm install
 npm run dev        # 개발 서버 (http://localhost:5173)
 npm test           # 자동 테스트
-npm run build      # dist/ 에 정적 파일 생성
+npm run build      # dist/index.html (한 파일) 생성 + aia-checker.html 로 복사
 ```
 
 화면 왼쪽에 .aia 파일을 끌어다 놓거나 "예제" 링크(O/X 퀴즈, 가위바위보, 오늘의 운세)를 누르세요.
@@ -36,7 +45,7 @@ npm run build      # dist/ 에 정적 파일 생성
 | `src/blocks/prepare.ts` | Blockly에 넣기 전 XML 보정, 모르는 블록은 회색 대체 블록으로 표시 |
 | `src/i18n/ai-ko.json` | App Inventor 한국어 메시지 (스크립트로 추출) |
 | `src/ui/` | 화면 (파일 목록, 폰 미리보기, 컴포넌트 트리) |
-| `scripts/build-fixtures.mjs` | 테스트용 .aia 3개 생성 → `tests/fixtures/`, `public/samples/` |
+| `scripts/build-fixtures.mjs` | 테스트용 .aia 3개 생성 → `tests/fixtures/`, `src/samples/` |
 | `scripts/extract-i18n.mjs` | appinventor-sources에서 한국어 메시지 추출 |
 
 ## 앱인벤터와 맞춘 부분 (근거)
@@ -73,6 +82,6 @@ npm run extract:i18n -- /tmp/ais
 - `src/i18n/ai-ko.json` 은 MIT App Inventor 소스의 메시지 파일에서 추출한 데이터입니다.
   MIT App Inventor: Copyright © MIT, [Apache License 2.0](https://github.com/mit-cml/appinventor-sources/blob/master/LICENSE).
   블록 정의(`src/blocks/defs.ts`)는 원본 코드를 복사하지 않고, 원본의 구조(type, 입력·필드 이름, 메시지 키, 색)를 따라 새로 작성했습니다.
-- [Blockly](https://github.com/google/blockly) (Apache License 2.0), `public/blockly-media/` 는 Blockly 패키지의 media 파일 복사본입니다.
+- [Blockly](https://github.com/google/blockly) (Apache License 2.0), `public/blockly-media/` 는 Blockly 패키지의 media 파일(마우스 커서 등) 복사본입니다.
 - [JSZip](https://github.com/Stuk/jszip) (MIT 또는 GPLv3 중 선택, 여기서는 MIT).
 - [BlockLens](https://github.com/TechHamara/BlockLens) 와 Kodular ai-unchive 는 접근 방식을 참고만 했고, 코드는 가져오지 않았습니다.
