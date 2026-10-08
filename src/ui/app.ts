@@ -1,17 +1,11 @@
 import { parseAia } from '../aia/parse';
-import type { AiaProject, ScreenData } from '../aia/types';
+import type { AiaProject, ComponentNode, ScreenData } from '../aia/types';
 import { createBlocksView, type BlocksView } from '../blocks/workspace';
-import { renderForm } from './preview';
-import { renderComponentTree } from './tree';
 import { componentTypeName } from '../blocks/msg';
-
-interface Entry {
-  id: number;
-  fileName: string;
-  status: 'loading' | 'ok' | 'error';
-  project?: AiaProject;
-  error?: string;
-}
+import { AppRuntime, type LogEntry } from '../runtime/interpreter';
+import { NON_VISIBLE } from './preview';
+import { renderComponentTree } from './tree';
+import { setupLayout } from './layout';
 
 // 예제 파일은 빌드할 때 HTML 안에 data: URL 로 들어간다 (file:// 로 열어도 읽힘)
 import oxUrl from '../samples/ox-quiz.aia?url';
@@ -24,10 +18,19 @@ const SAMPLES = [
   ['오늘의 운세', fortuneUrl, 'fortune.aia'],
 ] as const;
 
+interface Entry {
+  id: number;
+  fileName: string;
+  status: 'loading' | 'ok' | 'error';
+  project?: AiaProject;
+  error?: string;
+}
+
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 
 export function startApp() {
   document.documentElement.classList.add('app-ready');
+
   const entries: Entry[] = [];
   let seq = 0;
   let current: Entry | null = null;
@@ -35,6 +38,8 @@ export function startApp() {
   let assetUrls = new Map<string, string>();
   let assetsOwner: AiaProject | null = null;
   let blocks: BlocksView | null = null;
+  let runtime: AppRuntime | null = null;
+  let logs: LogEntry[] = [];
 
   const fileList = $('#file-list');
   const treeBox = $('#component-tree');
@@ -44,51 +49,64 @@ export function startApp() {
   const screenTabs = $('#screen-tabs');
   const blockInfo = $('#block-info');
   const projectInfo = $('#project-info');
+  const currentFile = $('#current-file');
+  const runStatus = $('#run-status');
+  const logList = $('#log-list');
+  const logCount = $('#log-count');
+
+  const layout = setupLayout(() => blocks?.resize());
+  // 블록 칸 크기가 바뀌면 (경계선 끌기, 창 크기) Blockly 도 다시 맞춘다
+  new ResizeObserver(() => blocks?.resize()).observe($('#blockly'));
 
   // ───── 파일 입력 ─────
   const drop = $('#dropzone');
   const input = $<HTMLInputElement>('#file-input');
-  drop.addEventListener('click', () => input.click());
+  const openPicker = () => input.click();
+  drop.addEventListener('click', openPicker);
+  $('#btn-open').addEventListener('click', openPicker);
   drop.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') input.click();
+    if (e.key === 'Enter' || e.key === ' ') openPicker();
   });
   input.addEventListener('change', () => {
     if (input.files) addFiles([...input.files]);
     input.value = '';
   });
-  for (const ev of ['dragenter', 'dragover'] as const)
-    drop.addEventListener(ev, (e) => {
-      e.preventDefault();
-      drop.classList.add('over');
-    });
-  for (const ev of ['dragleave', 'drop'] as const) drop.addEventListener(ev, () => drop.classList.remove('over'));
-  drop.addEventListener('drop', (e) => {
+  // 창 어디에 떨어뜨려도 받는다
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => {
     e.preventDefault();
-    const files = [...(e.dataTransfer?.files ?? [])];
-    addFiles(files);
+    if (++dragDepth === 1) document.body.classList.add('dragging');
   });
-  // 창 아무 곳에 떨어뜨려도 브라우저가 파일을 열어 버리지 않게
+  window.addEventListener('dragleave', () => {
+    if (--dragDepth <= 0) {
+      dragDepth = 0;
+      document.body.classList.remove('dragging');
+    }
+  });
   window.addEventListener('dragover', (e) => e.preventDefault());
-  window.addEventListener('drop', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    document.body.classList.remove('dragging');
+    addFiles([...(e.dataTransfer?.files ?? [])]);
+  });
 
   const samplesBox = $('#samples');
   for (const [label, url, fileName] of SAMPLES) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'link-button';
+    b.className = 'link';
     b.textContent = label;
     b.addEventListener('click', async () => {
-      const res = await fetch(url);
-      const blob = await res.blob();
+      const blob = await (await fetch(url)).blob();
       addFiles([new File([blob], fileName)]);
     });
     samplesBox.appendChild(b);
   }
 
   function addFiles(files: File[]) {
-    const aias = files.filter((f) => /\.aia$/i.test(f.name) || f.type === 'application/zip');
-    const skipped = files.length - aias.length;
-    if (skipped) toast(`.aia 파일이 아닌 ${skipped}개는 건너뛰었습니다.`);
+    const aias = files.filter((f) => /\.aia$/i.test(f.name));
+    if (files.length > aias.length) toast(`.aia 가 아닌 파일 ${files.length - aias.length}개는 건너뛰었습니다.`);
     let first: Entry | null = null;
     for (const f of aias) {
       const e: Entry = { id: ++seq, fileName: f.name, status: 'loading' };
@@ -115,22 +133,18 @@ export function startApp() {
 
   function renderList() {
     fileList.innerHTML = '';
-    if (!entries.length) {
-      fileList.innerHTML = '<li class="empty">아직 연 파일이 없습니다.</li>';
-      return;
-    }
     for (const e of entries) {
       const li = document.createElement('li');
       li.className = `file-item ${e.status}${e === current ? ' selected' : ''}`;
       const name = document.createElement('button');
       name.type = 'button';
       name.className = 'file-name';
-      name.textContent = e.fileName;
+      name.textContent = e.fileName.replace(/\.aia$/i, '');
       name.title = e.error ?? e.fileName;
       name.addEventListener('click', () => select(e));
       const st = document.createElement('span');
       st.className = 'file-status';
-      st.textContent = e.status === 'loading' ? '읽는 중…' : e.status === 'error' ? '오류' : `${e.project!.screens.length}화면`;
+      st.textContent = e.status === 'loading' ? '…' : e.status === 'error' ? '오류' : '';
       const rm = document.createElement('button');
       rm.type = 'button';
       rm.className = 'file-remove';
@@ -140,8 +154,7 @@ export function startApp() {
         entries.splice(entries.indexOf(e), 1);
         if (current === e) {
           current = null;
-          const next = entries[0];
-          if (next) select(next);
+          if (entries[0]) select(entries[0]);
           else clearView();
         }
         renderList();
@@ -149,23 +162,28 @@ export function startApp() {
       li.append(name, st, rm);
       fileList.appendChild(li);
     }
+    fileList.hidden = entries.length === 0;
+  }
+
+  function stopRuntime() {
+    runtime?.dispose();
+    runtime = null;
   }
 
   function clearView() {
-    revokeAssets();
-    treeBox.innerHTML = '<p class="hint">파일을 열면 컴포넌트 목록이 나옵니다.</p>';
-    phone.innerHTML = '';
-    phoneTitle.textContent = '';
-    nonVisibleBox.textContent = '';
-    screenTabs.innerHTML = '';
-    blockInfo.textContent = '';
-    projectInfo.innerHTML = '';
-    blocks?.show(null);
-  }
-
-  function revokeAssets() {
+    stopRuntime();
     assetUrls = new Map();
     assetsOwner = null;
+    treeBox.innerHTML = '<p class="muted">파일을 열면 컴포넌트가 나옵니다.</p>';
+    phone.innerHTML = '<div class="device-empty">.aia 파일을 열면<br>여기서 앱이 실행됩니다</div>';
+    phoneTitle.textContent = '';
+    nonVisibleBox.textContent = '';
+    screenTabs.innerHTML = '<span class="muted screen-placeholder">블록</span>';
+    blockInfo.textContent = '';
+    projectInfo.innerHTML = '';
+    currentFile.textContent = '';
+    setLogs([]);
+    blocks?.show(null);
   }
 
   function select(e: Entry) {
@@ -174,17 +192,18 @@ export function startApp() {
     renderList();
     if (e.status !== 'ok') {
       clearView();
-      if (e.status === 'error') phone.innerHTML = `<div class="phone-message error">이 파일을 열 수 없습니다.<br>${escapeHtml(e.error ?? '')}</div>`;
-      else phone.innerHTML = '<div class="phone-message">읽는 중…</div>';
+      currentFile.textContent = e.fileName;
+      if (e.status === 'error') phone.innerHTML = `<div class="device-empty error">열 수 없는 파일입니다<br><small>${escapeHtml(e.error ?? '')}</small></div>`;
+      else phone.innerHTML = '<div class="device-empty">읽는 중…</div>';
       return;
     }
+    currentFile.textContent = e.fileName;
     const p = e.project!;
     // 읽기가 끝난 뒤 다시 select 될 수도 있으므로 "어느 프로젝트의 assets 인지"로 판단한다
     if (assetsOwner !== p || changed || !currentScreen || !p.screens.some((s) => s.name === currentScreen)) {
       assetsOwner = p;
-      revokeAssets();
       // blob: URL 은 file:// 로 연 페이지에서 그림이 안 나오는 경우가 있어 data: URL 을 쓴다
-      for (const [name, data] of p.assets) assetUrls.set(name, `data:${mimeOf(name)};base64,${toBase64(data)}`);
+      assetUrls = new Map([...p.assets].map(([name, data]) => [name, `data:${mimeOf(name)};base64,${toBase64(data)}`]));
       currentScreen = p.screens[0]?.name ?? null;
     }
     renderScreenTabs(p);
@@ -199,9 +218,10 @@ export function startApp() {
       const b = document.createElement('button');
       b.type = 'button';
       b.role = 'tab';
-      b.className = 'tab' + (s.name === currentScreen ? ' active' : '');
+      b.className = 'screen-tab' + (s.name === currentScreen ? ' active' : '');
       b.textContent = s.name;
       b.addEventListener('click', () => {
+        if (currentScreen === s.name) return;
         currentScreen = s.name;
         renderScreenTabs(p);
         showScreen(s);
@@ -211,48 +231,85 @@ export function startApp() {
   }
 
   function showScreen(s: ScreenData) {
-    // 컴포넌트 트리
     treeBox.innerHTML = '';
     treeBox.appendChild(renderComponentTree(s.form));
-    // 폰 미리보기
-    phone.innerHTML = '';
-    nonVisibleBox.textContent = '';
-    if (s.form) {
-      phoneTitle.textContent = s.form.props.Title ?? s.name;
-      const r = renderForm(s.form, (n) => assetUrls.get(n));
-      phone.appendChild(r.root);
-      if (r.nonVisible.length)
-        nonVisibleBox.textContent = '보이지 않는 컴포넌트: ' + r.nonVisible.map((c) => `${c.name}(${componentTypeName(c.type)})`).join(', ');
-    } else {
-      phoneTitle.textContent = s.name;
-      phone.innerHTML = `<div class="phone-message error">${escapeHtml(s.scmError ?? '디자이너 정보를 읽지 못했습니다.')}</div>`;
-    }
-    // 블록
+    runScreen(s);
     blocks ??= createBlocksView($('#blockly'));
     try {
       const { unknownTypes, blockCount } = blocks.show(s.bky);
-      blockInfo.innerHTML = '';
-      const span = document.createElement('span');
-      span.textContent = s.bky ? `블록 ${blockCount}개` : '이 화면에는 블록이 없습니다.';
-      blockInfo.appendChild(span);
+      blockInfo.textContent = s.bky ? `${blockCount}개` : '블록 없음';
+      blockInfo.title = '';
       if (unknownTypes.length) {
-        const w = document.createElement('span');
-        w.className = 'warn';
-        w.textContent = ` ⚠ 모양을 모르는 블록(회색으로 표시): ${unknownTypes.join(', ')}`;
-        blockInfo.appendChild(w);
+        blockInfo.textContent += ` · 모르는 블록 ${unknownTypes.length}종`;
+        blockInfo.title = unknownTypes.join(', ');
       }
     } catch (err) {
-      blockInfo.innerHTML = `<span class="warn">블록을 그리지 못했습니다: ${escapeHtml((err as Error).message)}</span>`;
+      blockInfo.textContent = '블록을 그리지 못했습니다';
+      blockInfo.title = (err as Error).message;
       console.error(err);
     }
   }
+
+  function runScreen(s: ScreenData) {
+    stopRuntime();
+    setLogs([]);
+    const nv: string[] = [];
+    const walk = (c: ComponentNode) => {
+      if (NON_VISIBLE.has(c.type)) nv.push(`${c.name}(${componentTypeName(c.type)})`);
+      c.children.forEach(walk);
+    };
+    if (s.form) walk(s.form);
+    nonVisibleBox.textContent = nv.length ? '보이지 않는 컴포넌트: ' + nv.join(', ') : '';
+    phoneTitle.textContent = s.form?.props.Title ?? s.name;
+    runtime = new AppRuntime({
+      screen: s,
+      container: phone,
+      assetUrl: (n) => assetUrls.get(n),
+      onLog: (e) => setLogs([...logs, e]),
+      onTitle: (t) => (phoneTitle.textContent = t),
+    });
+    runtime.start();
+  }
+
+  function setLogs(next: LogEntry[]) {
+    logs = next;
+    logList.innerHTML = '';
+    if (!logs.length) logList.innerHTML = '<li class="muted">경고나 오류가 없습니다.</li>';
+    for (const l of logs) {
+      const li = document.createElement('li');
+      li.className = `log ${l.level}`;
+      const tag = document.createElement('span');
+      tag.className = 'log-tag';
+      tag.textContent = l.level === 'error' ? '오류' : l.level === 'warn' ? '경고' : '정보';
+      const msg = document.createElement('span');
+      msg.textContent = l.message;
+      li.append(tag, msg);
+      logList.appendChild(li);
+    }
+    const errors = logs.filter((l) => l.level === 'error').length;
+    const warns = logs.filter((l) => l.level === 'warn').length;
+    logCount.textContent = logs.length ? String(logs.length) : '';
+    logCount.className = 'count' + (errors ? ' error' : warns ? ' warn' : '');
+    runStatus.textContent = errors ? `오류 ${errors}` : warns ? `경고 ${warns}` : '';
+    runStatus.className = 'run-status' + (errors ? ' error' : warns ? ' warn' : '');
+  }
+
+  runStatus.addEventListener('click', () => {
+    if (!layout.isVisible('bottom')) layout.toggle('bottom', true);
+    showBottomTab('panel-log');
+  });
+
+  $('#btn-restart').addEventListener('click', () => {
+    const s = current?.project?.screens.find((x) => x.name === currentScreen);
+    if (s) runScreen(s);
+  });
 
   function renderProjectInfo(p: AiaProject) {
     const rows: [string, string][] = [
       ['파일', p.fileName],
       ['앱 이름', p.appName],
       ['화면', p.screens.map((s) => s.name).join(', ')],
-      ['미디어(assets)', p.assets.size ? [...p.assets.keys()].join(', ') : '없음'],
+      ['미디어', p.assets.size ? [...p.assets.keys()].join(', ') : '없음'],
       ['소스 경로', p.packagePath],
     ];
     projectInfo.innerHTML = '';
@@ -272,15 +329,13 @@ export function startApp() {
   $('#btn-zoom-out').addEventListener('click', () => blocks?.zoom(-1));
   $('#btn-fit').addEventListener('click', () => blocks?.zoomToFit());
   $('#btn-cleanup').addEventListener('click', () => blocks?.cleanUp());
-  window.addEventListener('resize', () => blocks?.resize());
 
-  // ───── 아래쪽 탭 ─────
-  document.querySelectorAll<HTMLButtonElement>('#bottom-tabs .tab').forEach((t) =>
-    t.addEventListener('click', () => {
-      document.querySelectorAll('#bottom-tabs .tab').forEach((x) => x.classList.toggle('active', x === t));
-      document.querySelectorAll<HTMLElement>('.bottom-panel').forEach((p) => (p.hidden = p.id !== t.dataset.panel));
-    }),
-  );
+  // ───── 아래 탭 ─────
+  function showBottomTab(id: string) {
+    document.querySelectorAll<HTMLElement>('#bottom-tabs .tab').forEach((x) => x.classList.toggle('active', x.dataset.panel === id));
+    document.querySelectorAll<HTMLElement>('.bottom-panel').forEach((p) => (p.hidden = p.id !== id));
+  }
+  document.querySelectorAll<HTMLButtonElement>('#bottom-tabs .tab').forEach((t) => t.addEventListener('click', () => showBottomTab(t.dataset.panel!)));
 
   renderList();
   clearView();

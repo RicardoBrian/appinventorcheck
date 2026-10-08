@@ -3,72 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>앱인벤터 aia 채점 도우미</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='4' fill='%23B18E35'/%3E%3Crect x='8' y='7' width='16' height='16' rx='2' fill='%23fff'/%3E%3C/svg%3E" />
+    <title>aiachecker</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='1' width='10' height='14' rx='2' fill='%23333'/%3E%3Crect x='5' y='3' width='6' height='8' fill='%23fff'/%3E%3C/svg%3E" />
   </head>
   <body>
     <div id="load-error" class="load-error">
-      <strong>프로그램이 시작되지 않았습니다.</strong>
-      <p>개발용 원본(app/index.html)을 직접 열면 이렇게 보입니다. 저장소 맨 위의 <b>index.html</b> 을 여세요.</p>
+      프로그램이 시작되지 않았습니다. 개발용 원본(app/index.html)을 직접 열면 이렇게 보입니다. 저장소 맨 위의 index.html 을 여세요.
     </div>
-    <header class="topbar">
-      <h1>앱인벤터 aia 채점 도우미</h1>
-      <p class="privacy">🔒 파일은 이 브라우저 안에서만 열립니다. 어디에도 전송되지 않습니다.</p>
+
+    <header class="appbar">
+      <span class="brand">aiachecker</span>
+      <button id="btn-open" type="button" class="btn">파일 열기</button>
+      <input id="file-input" type="file" accept=".aia" multiple hidden />
+      <span class="appbar-file" id="current-file"></span>
+      <nav class="view-toggles" aria-label="화면 구성">
+        <button type="button" class="toggle" data-toggle="files" title="파일 목록 (Alt+1)">파일</button>
+        <button type="button" class="toggle" data-toggle="run" title="실행 화면 (Alt+2)">실행</button>
+        <button type="button" class="toggle" data-toggle="blocks" title="블록 (Alt+3)">블록</button>
+        <button type="button" class="toggle" data-toggle="bottom" title="아래 패널 (Alt+4)">기록·채점</button>
+        <button type="button" class="btn-plain" id="btn-reset-layout" title="화면 구성을 처음 상태로">초기화</button>
+      </nav>
     </header>
 
-    <main class="layout">
-      <aside class="panel left">
-        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="aia 파일 열기">
-          <strong>📂 .aia 파일 끌어다 놓기</strong>
-          <span>또는 눌러서 파일 선택 (여러 개 가능)</span>
-        </div>
-        <input id="file-input" type="file" accept=".aia" multiple hidden />
-        <div class="samples">예제: <span id="samples"></span></div>
-
-        <h2>파일 목록</h2>
-        <ul id="file-list" class="file-list"></ul>
-
-        <h2>컴포넌트</h2>
-        <div id="component-tree"></div>
-      </aside>
-
-      <section class="panel center">
-        <div class="phone">
-          <div class="phone-status"><span>9:41</span><span>▮▮▮ ◔</span></div>
-          <div id="phone-title" class="phone-title"></div>
-          <div id="phone-screen" class="phone-screen"></div>
-        </div>
-        <p id="non-visible" class="non-visible"></p>
-        <p class="hint">단계 1: 디자이너 화면 미리보기입니다. 버튼을 눌러 실행하는 기능은 단계 2에서 추가됩니다.</p>
-      </section>
-
-      <section class="panel right">
-        <div class="blocks-toolbar">
-          <div id="screen-tabs" class="tabs" role="tablist"></div>
-          <div class="tools">
-            <button id="btn-zoom-in" type="button" title="확대">＋</button>
-            <button id="btn-zoom-out" type="button" title="축소">－</button>
-            <button id="btn-fit" type="button" title="모든 블록이 보이게 맞추기">화면 맞춤</button>
-            <button id="btn-cleanup" type="button" title="블록을 세로로 정렬">블록 정렬</button>
+    <div class="workspace" id="workspace">
+      <div class="panes" id="panes">
+        <section class="pane" data-pane="files">
+          <div class="pane-head"><span>파일</span></div>
+          <div class="pane-body files-body">
+            <div id="dropzone" class="dropzone" tabindex="0" role="button">
+              .aia 파일 끌어오기 · 클릭
+              <small>여러 개 가능 · 파일은 외부로 전송되지 않음</small>
+            </div>
+            <ul id="file-list" class="file-list"></ul>
+            <div class="samples">예제 <span id="samples"></span></div>
+            <div class="section-title">컴포넌트</div>
+            <div id="component-tree"></div>
           </div>
+        </section>
+        <div class="gutter" data-gutter="0"></div>
+        <section class="pane" data-pane="run">
+          <div class="pane-head">
+            <span>실행</span>
+            <span class="pane-actions">
+              <span id="run-status" class="run-status"></span>
+              <button id="btn-restart" type="button" class="btn-small" title="앱을 처음부터 다시 실행">다시 실행</button>
+            </span>
+          </div>
+          <div class="pane-body run-body">
+            <div class="device">
+              <div class="device-status"><span>9:41</span></div>
+              <div id="phone-title" class="device-title"></div>
+              <div id="phone-screen" class="device-screen"></div>
+            </div>
+            <p id="non-visible" class="non-visible"></p>
+          </div>
+        </section>
+        <div class="gutter" data-gutter="1"></div>
+        <section class="pane" data-pane="blocks">
+          <div class="pane-head">
+            <div id="screen-tabs" class="screen-tabs" role="tablist"></div>
+            <span class="pane-actions">
+              <span id="block-info" class="block-info"></span>
+              <button id="btn-zoom-out" type="button" class="btn-small" title="축소">−</button>
+              <button id="btn-zoom-in" type="button" class="btn-small" title="확대">+</button>
+              <button id="btn-fit" type="button" class="btn-small" title="모든 블록이 보이게">맞춤</button>
+              <button id="btn-cleanup" type="button" class="btn-small" title="블록을 세로로 정렬">정렬</button>
+            </span>
+          </div>
+          <div id="blockly" class="blockly"></div>
+        </section>
+      </div>
+      <div class="gutter-h" id="gutter-bottom"></div>
+      <section class="pane bottom" data-pane="bottom">
+        <div class="pane-head" id="bottom-tabs">
+          <button type="button" class="tab active" data-panel="panel-log">실행 기록 <span id="log-count" class="count"></span></button>
+          <button type="button" class="tab" data-panel="panel-grade">채점</button>
+          <button type="button" class="tab" data-panel="panel-info">프로젝트 정보</button>
         </div>
-        <div id="blockly" class="blockly"></div>
-        <div id="block-info" class="block-info"></div>
+        <div class="pane-body">
+          <div id="panel-log" class="bottom-panel"><ul id="log-list" class="log-list"></ul></div>
+          <div id="panel-grade" class="bottom-panel" hidden><p class="muted">채점 체크리스트는 다음 단계에서 추가합니다.</p></div>
+          <div id="panel-info" class="bottom-panel" hidden><div id="project-info"></div></div>
+        </div>
       </section>
-    </main>
-
-    <section class="panel bottom">
-      <div id="bottom-tabs" class="tabs">
-        <button type="button" class="tab active" data-panel="panel-grade">채점 결과</button>
-        <button type="button" class="tab" data-panel="panel-info">프로젝트 정보</button>
-      </div>
-      <div id="panel-grade" class="bottom-panel">
-        <p class="hint">채점 체크리스트는 단계 3에서 추가됩니다.</p>
-      </div>
-      <div id="panel-info" class="bottom-panel" hidden>
-        <div id="project-info"></div>
-      </div>
-    </section>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
