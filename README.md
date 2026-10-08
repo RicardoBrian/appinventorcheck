@@ -19,18 +19,24 @@ MIT App Inventor 프로젝트 파일(.aia)을 브라우저에서 열어
 
 ### 그냥 쓰기 (설치 없음)
 
-저장소의 **`aia-checker.html`** 파일 하나만 내려받아 더블클릭하면 크롬/엣지에서 바로 열립니다.
-(프로그램·예제가 모두 이 파일 안에 들어 있고, 인터넷 연결도 필요 없습니다.)
+저장소 맨 위의 **`index.html`**(또는 같은 내용의 `aia-checker.html`)이 완성된 프로그램입니다.
+내려받아 더블클릭하면 크롬/엣지에서 바로 열립니다. 프로그램·예제가 모두 이 파일 하나에 들어 있고 인터넷 연결도 필요 없습니다.
 
-> 저장소 맨 위의 `index.html` 은 개발용 원본이라 직접 열면 동작하지 않습니다.
+### 배포
+
+- **빌드 없이 저장소를 그대로 배포** (GitHub Pages 등): 맨 위 `index.html` 이 그대로 동작합니다.
+- **빌드해서 배포** (Vercel·Netlify·Cloudflare Pages 등): 빌드 명령 `npm run build`, 출력 폴더 `dist`.
+- **Firebase Hosting**: `firebase.json` 이 저장소 맨 위를 배포하도록 되어 있어 `firebase deploy` 만 하면 됩니다.
+
+> 개발용 원본 HTML 은 `app/index.html` 입니다. 코드를 고친 뒤에는 `npm run build` 를 해야 맨 위 `index.html` 이 갱신됩니다.
 
 ### 개발
 
 ```bash
 npm install
-npm run dev        # 개발 서버 (http://localhost:5173)
+npm run dev        # 개발 서버 (http://localhost:5173/app/)
 npm test           # 자동 테스트
-npm run build      # dist/index.html (한 파일) 생성 + aia-checker.html 로 복사
+npm run build      # 한 파일로 빌드 → dist/index.html, index.html, aia-checker.html
 ```
 
 화면 왼쪽에 .aia 파일을 끌어다 놓거나 "예제" 링크(O/X 퀴즈, 가위바위보, 오늘의 운세)를 누르세요.
