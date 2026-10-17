@@ -92,6 +92,16 @@ const event = (type, inst, ev, body, x, y) =>
     statements: { DO: body },
   });
 
+/** 이벤트 매개변수 가져오기 (예: 캔버스.드래그했을때 의 currentX) */
+const pget = (name) => block('lexical_variable_get', { mutation: { children: `<eventparam name="${name}"></eventparam>` }, fields: { VAR: name } });
+/** 컴포넌트 메서드 호출 */
+const call = (type, inst, method, args = []) =>
+  block('component_method', {
+    mutation: { component_type: type, method_name: method, is_generic: 'false', instance_name: inst },
+    fields: { COMPONENT_SELECTOR: inst },
+    values: Object.fromEntries(args.map((v, i) => [`ARG${i}`, v])),
+  });
+
 // ───────── .scm 빌더 ─────────
 let uuid = 1000;
 const comp = (type, name, props = {}, children) => ({
@@ -102,16 +112,16 @@ const comp = (type, name, props = {}, children) => ({
   Uuid: String(++uuid),
   ...(children ? { $Components: children } : {}),
 });
-function scm(appName, title, components, extra = {}) {
+function scm(appName, title, components, extra = {}, screenName = 'Screen1') {
   const form = {
     authURL: ['ai2.appinventor.mit.edu'],
     YaVersion: '233',
     Source: 'Form',
     Properties: {
-      $Name: 'Screen1',
+      $Name: screenName,
       $Type: 'Form',
       $Version: '31',
-      AppName: appName,
+      ...(screenName === 'Screen1' ? { AppName: appName } : {}),
       Title: title,
       Sizing: 'Responsive',
       Theme: 'Classic',
@@ -146,13 +156,17 @@ const projectProperties = (name) =>
     '',
   ].join('\n');
 
+/** screen1Scm 대신 [{ name, scm, bky }, ...] 를 주면 스크린 여러 개 */
 async function writeAia(fileName, name, screen1Scm, screen1Bky, assets = {}) {
   const zip = new JSZip();
   const opt = { date: new Date(Date.UTC(2024, 0, 1)), createFolders: false };
   const base = `src/appinventor/ai_teacher/${name}`;
   zip.file('youngandroidproject/project.properties', projectProperties(name), opt);
-  zip.file(`${base}/Screen1.scm`, screen1Scm, opt);
-  zip.file(`${base}/Screen1.bky`, screen1Bky, opt);
+  const screens = Array.isArray(screen1Scm) ? screen1Scm : [{ name: 'Screen1', scm: screen1Scm, bky: screen1Bky }];
+  for (const sc of screens) {
+    zip.file(`${base}/${sc.name}.scm`, sc.scm, opt);
+    zip.file(`${base}/${sc.name}.bky`, sc.bky, opt);
+  }
   for (const [n, data] of Object.entries(assets)) zip.file(`assets/${n}`, data, opt);
   const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
   for (const d of outDirs) {
@@ -305,6 +319,79 @@ const fortuneScm = scm('Fortune', '오늘의 운세', [
   comp('Clock', '시계1', { TimerInterval: '300', TimerEnabled: 'False' }),
 ], { AlignHorizontal: '3' });
 
+// ═════════ 4. 공 튕기기 그림판 (캔버스, 공, 이미지 스프라이트) ═════════
+const starPng = png(48, 48, (x, y) => {
+  const dx = x - 24;
+  const dy = y - 24;
+  const r = Math.hypot(dx, dy);
+  const a = Math.atan2(dy, dx);
+  const edge = 14 + 8 * Math.cos(5 * a);
+  return r < edge ? [255, 193, 7] : [255, 255, 255];
+});
+const ballBky = xmlDoc([
+  gdecl('횟수', num(0), 20, 20),
+  event('Canvas', '캔버스1', 'Dragged', [call('Canvas', '캔버스1', 'DrawLine', [pget('prevX'), pget('prevY'), pget('currentX'), pget('currentY')])], 20, 80),
+  event('Canvas', '캔버스1', 'Touched', [call('Canvas', '캔버스1', 'DrawCircle', [pget('x'), pget('y'), num(6), bool(true)])], 20, 320),
+  event('Ball', '공1', 'EdgeReached', [call('Ball', '공1', 'Bounce', [pget('edge')])], 20, 520),
+  event('Ball', '공1', 'CollidedWith', [
+    gset('횟수', add(gget('횟수'), num(1))),
+    setProp('Label', '점수', 'Text', join(txt('부딪힌 횟수: '), gget('횟수'))),
+  ], 20, 640),
+  event('Button', '지우기', 'Click', [call('Canvas', '캔버스1', 'Clear')], 20, 840),
+]);
+const ballScm = scm('BallPaint', '공 튕기기 그림판', [
+  comp('Canvas', '캔버스1', { Width: '300', Height: '300', BackgroundColor: '&HFFFFFFFF', PaintColor: '&HFF2196F3', LineWidth: '3' }, [
+    comp('Ball', '공1', { X: '20', Y: '20', Heading: '30', Speed: '6', Interval: '50', Radius: '12', PaintColor: '&HFFF44336' }),
+    comp('ImageSprite', '별', { X: '200', Y: '150', Width: '48', Height: '48', Picture: 'star.png' }),
+  ]),
+  comp('HorizontalArrangement', '수평배치1', { AlignVertical: '2', Width: '-2' }, [
+    comp('Button', '지우기', { Text: '지우기' }),
+    comp('Label', '점수', { Text: '부딪힌 횟수: 0', FontSize: '16' }),
+  ]),
+], { AlignHorizontal: '3' });
+
+// ═════════ 5. 과일 고르기 (목록 선택, 알림 대화상자, TinyDB, 스크린 두 개) ═════════
+const fruitBky1 = xmlDoc([
+  event('ListPicker', '과일선택', 'AfterPicking', [setProp('Label', '선택결과', 'Text', getProp('ListPicker', '과일선택', 'Selection'))], 20, 20),
+  event('Button', '저장', 'Click', [call('Notifier', '알림1', 'ShowChooseDialog', [txt('저장할까요?'), txt('확인'), txt('예'), txt('아니오'), bool(false)])], 20, 130),
+  event('Notifier', '알림1', 'AfterChoosing', [
+    ifBlock([[textCmp('EQUAL', pget('choice'), txt('예')), [
+      call('TinyDB', '저장소', 'StoreValue', [txt('과일'), getProp('ListPicker', '과일선택', 'Selection')]),
+      call('Notifier', '알림1', 'ShowAlert', [txt('저장했습니다')]),
+    ]]]),
+  ], 20, 330),
+  event('Button', '다음', 'Click', [
+    block('controls_openAnotherScreenWithStartValue', { values: { SCREENNAME: txt('Screen2'), STARTVALUE: getProp('ListPicker', '과일선택', 'Selection') } }),
+  ], 20, 560),
+  event('Form', 'Screen1', 'OtherScreenClosed', [setProp('Label', '선택결과', 'Text', join(txt('돌아옴: '), pget('result')))], 20, 680),
+]);
+const fruitScm1 = scm('FruitMemo', '과일 고르기', [
+  comp('ListPicker', '과일선택', { Text: '과일 고르기', ElementsFromString: '사과,바나나,포도', Title: '과일' }),
+  comp('Label', '선택결과', { Text: '아직 안 골랐어요', FontSize: '18' }),
+  comp('Button', '저장', { Text: '저장' }),
+  comp('Button', '다음', { Text: '기록 보기' }),
+  comp('Notifier', '알림1'),
+  comp('TinyDB', '저장소'),
+]);
+const fruitBky2 = xmlDoc([
+  event('Form', 'Screen2', 'Initialize', [
+    setProp('Label', '기록', 'Text', join(txt('저장된 과일: '), call('TinyDB', '저장소', 'GetValue', [txt('과일'), txt('없음')]))),
+    setProp('Label', '시작값', 'Text', join(txt('받은 값: '), block('controls_getStartValue'))),
+  ], 20, 20),
+  event('Button', '닫기', 'Click', [block('controls_closeScreenWithValue', { values: { SCREEN: txt('좋아요') } })], 20, 160),
+]);
+const fruitScm2 = scm('FruitMemo', '기록', [
+  comp('Label', '기록', { Text: '' }),
+  comp('Label', '시작값', { Text: '' }),
+  comp('Button', '닫기', { Text: '돌아가기' }),
+  comp('TinyDB', '저장소'),
+], {}, 'Screen2');
+
 await writeAia('ox-quiz.aia', 'OXQuiz', oxScm, oxBky);
+await writeAia('ball-paint.aia', 'BallPaint', ballScm, ballBky, { 'star.png': starPng });
+await writeAia('fruit-memo.aia', 'FruitMemo', [
+  { name: 'Screen1', scm: fruitScm1, bky: fruitBky1 },
+  { name: 'Screen2', scm: fruitScm2, bky: fruitBky2 },
+]);
 await writeAia('rock-paper-scissors.aia', 'RockPaperScissors', rpsScm, rpsBky, { 'scissors.png': scissorsPng, 'rock.png': rockPng, 'paper.png': paperPng });
 await writeAia('fortune.aia', 'Fortune', fortuneScm, fortuneBky);

@@ -10,5 +10,5 @@ export default defineConfig({
   plugins: [viteSingleFile()],
   server: { open: '/app/' },
   build: { outDir: 'dist', rollupOptions: { input: 'app/index.html' }, chunkSizeWarningLimit: 3000 },
-  test: { environment: 'jsdom', include: ['tests/**/*.test.ts'] },
+  test: { environment: 'jsdom', include: ['tests/**/*.test.ts'], setupFiles: ['tests/setup.ts'] },
 });

@@ -6,9 +6,11 @@
  */
 import { chain, parseBky, type BlockNode } from '../aia/bky';
 import type { ComponentNode, ScreenData } from '../aia/types';
-import { renderForm } from '../ui/preview';
+import { NON_VISIBLE } from '../ui/preview';
 import { eventParams } from '../blocks/componentInfo';
-import { RtComponent, SUPPORTED_COMPONENTS, isSupportedProperty } from './components';
+import type { DialogOptions, RtComponent, RtContext } from './rt/base';
+import { CanvasComp, SpriteComp } from './rt/canvas';
+import { createComponent, UnsupportedComp } from './rt/registry';
 import {
   coerceArgs,
   coerceToNumber,
@@ -42,6 +44,14 @@ export interface RuntimeOptions {
   onTitle?: (title: string) => void;
   /** 이벤트 하나에서 실행할 수 있는 최대 블록 수 (무한 반복 방지) */
   maxSteps?: number;
+  /** TinyDB 저장소 (다시 실행해도 유지하려면 밖에서 넘겨준다) */
+  storage?: Map<string, Map<string, Value>>;
+  /** 다른 스크린 열기 / 닫기 (AppSession 이 처리) */
+  openScreen?: (name: string, startValue: Value) => void;
+  closeScreen?: (result: Value) => void;
+  closeApplication?: () => void;
+  /** 이 스크린을 열 때 받은 시작값 */
+  startValue?: Value;
 }
 
 class BreakSignal {}
@@ -65,9 +75,6 @@ class Scope {
 const BLOCK_NAMES: Record<string, string> = {
   text_split: '나누기',
   dictionaries_create_with: '사전 만들기',
-  controls_openAnotherScreen: '다른 스크린 열기',
-  controls_closeScreen: '스크린 닫기',
-  controls_closeApplication: '앱 종료',
 };
 
 export class AppRuntime {
@@ -81,12 +88,13 @@ export class AppRuntime {
   private maxSteps: number;
   private warned = new Set<string>();
   private disposed = false;
-  private listeners: (() => void)[] = [];
   private dialog: HTMLElement | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
-  phone: HTMLElement | null = null;
+  /** 이 스크린의 화면 (폰 화면 안에 붙는다) */
+  root: HTMLElement | null = null;
+  title = '';
 
-  constructor(private opts: RuntimeOptions) {
+  constructor(readonly opts: RuntimeOptions) {
     this.random = opts.random ?? Math.random;
     this.maxSteps = opts.maxSteps ?? 2_000_000;
   }
@@ -95,29 +103,54 @@ export class AppRuntime {
 
   start() {
     const { screen, container } = this.opts;
-    container.innerHTML = '';
+    const root = document.createElement('div');
+    root.className = 'rt-root';
+    container.appendChild(root);
+    this.root = root;
     if (!screen.form) {
       this.log('error', screen.scmError ?? '디자이너 정보를 읽지 못했습니다.');
       return;
     }
-    const rendered = renderForm(screen.form, this.opts.assetUrl);
-    container.appendChild(rendered.root);
-    this.phone = container;
-    this.opts.onTitle?.(screen.form.props.Title ?? screen.name);
 
-    const hooks = {
+    const storage = this.opts.storage ?? new Map<string, Map<string, Value>>();
+    const ctx: RtContext = {
       assetUrl: this.opts.assetUrl,
-      fireEvent: (c: string, e: string, args?: Value[]) => this.dispatch(c, e, args ?? []),
-      alert: (m: string) => this.toast(m),
-      warn: (m: string) => this.warnOnce(m),
-      setTitle: (t: string) => this.opts.onTitle?.(t),
+      fire: (c, e, args) => this.dispatch(c, e, args ?? []),
+      warn: (m) => this.warnOnce(m),
+      info: (m) => this.log('info', m),
+      toast: (m) => this.toast(m),
+      dialog: (o, done) => this.showDialog(o, done),
+      overlay: (el) => this.showOverlay(el),
+      setTitle: (t) => {
+        this.title = t;
+        this.opts.onTitle?.(t);
+      },
+      component: (n) => this.components.get(n),
+      random: () => this.random(),
+      storage: (ns) => {
+        if (!storage.has(ns)) storage.set(ns, new Map());
+        return storage.get(ns)!;
+      },
     };
-    const walk = (n: ComponentNode) => {
-      if (!SUPPORTED_COMPONENTS.has(n.type)) this.warnOnce(`지원하지 않는 컴포넌트: ${n.name} (${n.type})`);
-      this.components.set(n.name, new RtComponent(n, rendered.elements.get(n.name) ?? null, hooks));
-      n.children.forEach(walk);
+
+    // 컴포넌트 만들기: 디자이너 트리 순서대로, 자식은 부모의 childHost 안에
+    const build = (n: ComponentNode, parent: RtComponent | null) => {
+      const nonVisible = NON_VISIBLE.has(n.type);
+      const c = createComponent(n, ctx, nonVisible);
+      if (c instanceof UnsupportedComp) this.warnOnce(`지원하지 않는 컴포넌트: ${n.name} (${n.type})`);
+      c.init();
+      this.components.set(n.name, c);
+      if (c.el) (parent?.childHost ?? root).appendChild(c.el);
+      if (c instanceof SpriteComp) {
+        if (parent instanceof CanvasComp) {
+          c.canvas = parent;
+          parent.sprites.push(c);
+        }
+      }
+      n.children.forEach((k) => build(k, c));
     };
-    walk(screen.form);
+    build(screen.form, null);
+    for (const c of this.components.values()) c.start();
 
     let doc;
     try {
@@ -139,18 +172,28 @@ export class AppRuntime {
     this.guard(() => {
       for (const g of globalsDecl) this.globals.set(g.fields.NAME, this.evalInput(g, 'VALUE', new Scope(), 'any'));
     });
-    // 2) 화면 이벤트 연결
-    this.bindDomEvents();
-    // 3) Screen.초기화
+    // 2) Screen.초기화
     this.dispatch(screen.name, 'Initialize', []);
   }
 
   dispose() {
     this.disposed = true;
     for (const c of this.components.values()) c.dispose();
-    for (const off of this.listeners) off();
-    this.listeners = [];
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.root?.remove();
+  }
+
+  /** 휴대폰의 뒤로 버튼. BackPressed 블록이 있으면 그것을 실행하고 true */
+  pressBack(): boolean {
+    if (this.handlers.has(`${this.opts.screen.name}.BackPressed`)) {
+      this.dispatch(this.opts.screen.name, 'BackPressed', []);
+      return true;
+    }
+    return false;
+  }
+
+  hasHandler(component: string, event: string) {
+    return this.handlers.has(`${component}.${event}`);
   }
 
   private registerHandler(b: BlockNode) {
@@ -161,42 +204,12 @@ export class AppRuntime {
       return;
     }
     this.handlers.set(key, b);
-    const type = m.component_type === 'Form' ? 'Form' : m.component_type;
-    const supported: Record<string, string[]> = {
-      Form: ['Initialize'],
-      Button: ['Click', 'GotFocus', 'LostFocus', 'TouchDown', 'TouchUp', 'LongClick'],
-      Clock: ['Timer'],
-      TextBox: ['GotFocus', 'LostFocus'],
-      PasswordTextBox: ['GotFocus', 'LostFocus'],
-      CheckBox: ['Changed'],
-    };
-    if (!supported[type]?.includes(m.event_name)) this.warnOnce(`지원하지 않는 이벤트: ${m.is_generic === 'true' ? '모든 ' + type : m.instance_name}.${m.event_name}`);
-  }
-
-  private bindDomEvents() {
-    for (const c of this.components.values()) {
-      const el = c.el;
-      if (!el) continue;
-      const on = (ev: string, fn: (e: Event) => void) => {
-        el.addEventListener(ev, fn);
-        this.listeners.push(() => el.removeEventListener(ev, fn));
-      };
-      if (c.type === 'Button') {
-        on('click', () => this.dispatch(c.name, 'Click', []));
-        on('pointerdown', () => this.dispatch(c.name, 'TouchDown', []));
-        on('pointerup', () => this.dispatch(c.name, 'TouchUp', []));
-        on('focus', () => this.dispatch(c.name, 'GotFocus', []));
-        on('blur', () => this.dispatch(c.name, 'LostFocus', []));
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        on('pointerdown', () => (timer = setTimeout(() => this.dispatch(c.name, 'LongClick', []), 600)));
-        on('pointerup', () => timer && clearTimeout(timer));
-      } else if (c.type === 'TextBox' || c.type === 'PasswordTextBox') {
-        on('focus', () => this.dispatch(c.name, 'GotFocus', []));
-        on('blur', () => this.dispatch(c.name, 'LostFocus', []));
-      } else if (c.type === 'CheckBox') {
-        on('change', () => this.dispatch(c.name, 'Changed', []));
-      }
-    }
+    const comp =
+      m.is_generic === 'true'
+        ? [...this.components.values()].find((c) => c.type === m.component_type || (m.component_type === 'Form' && c.type === 'Form'))
+        : this.components.get(m.instance_name);
+    if (comp && !(comp instanceof UnsupportedComp) && !comp.events.includes(m.event_name))
+      this.warnOnce(`지원하지 않는 이벤트: ${m.is_generic === 'true' ? '모든 ' + m.component_type : m.instance_name}.${m.event_name}`);
   }
 
   // ───────────────────────── 이벤트 실행 ─────────────────────────
@@ -309,6 +322,28 @@ export class AppRuntime {
       }
       case 'controls_break':
         throw new BreakSignal();
+      case 'controls_openAnotherScreen':
+      case 'controls_openAnotherScreenWithStartValue': {
+        const nameInput = b.type === 'controls_openAnotherScreen' ? 'SCREEN' : 'SCREENNAME';
+        const name = coerceToString(this.evalInput(b, nameInput, scope));
+        const start = b.type === 'controls_openAnotherScreen' ? '' : this.evalInput(b, 'STARTVALUE', scope);
+        if (!this.opts.openScreen) return void this.unsupported(b);
+        this.opts.openScreen(name, start);
+        return;
+      }
+      case 'controls_closeScreen':
+      case 'controls_closeScreenWithValue':
+      case 'controls_closeScreenWithPlainText': {
+        const result =
+          b.type === 'controls_closeScreen' ? '' : this.evalInput(b, b.type === 'controls_closeScreenWithValue' ? 'SCREEN' : 'TEXT', scope);
+        if (!this.opts.closeScreen) return void this.unsupported(b);
+        this.opts.closeScreen(result);
+        return;
+      }
+      case 'controls_closeApplication':
+        if (!this.opts.closeApplication) return void this.unsupported(b);
+        this.opts.closeApplication();
+        return;
       case 'controls_eval_but_ignore':
         this.evalInput(b, 'VALUE', scope);
         return;
@@ -671,6 +706,12 @@ export class AppRuntime {
         this.execChain(b.statements.STM ?? null, scope);
         return this.evalInput(b, 'VALUE', scope);
 
+      // 스크린
+      case 'controls_getStartValue':
+        return this.opts.startValue ?? '';
+      case 'controls_getPlainStartText':
+        return coerceToString(this.opts.startValue ?? '');
+
       // 컴포넌트
       case 'component_set_get':
         return this.getProperty(b, scope);
@@ -730,19 +771,20 @@ export class AppRuntime {
   private target(b: BlockNode, scope: Scope): RtComponent {
     let name = b.mutation.instance_name;
     if (b.mutation.is_generic === 'true') {
-      const ref = this.evalInput(b, 'COMPONENT', scope) as ComponentRef | null;
-      if (!ref || typeof ref !== 'object' || (ref as ComponentRef).kind !== 'component') throw typeError(b.mutation.property_name ?? b.mutation.method_name ?? 'component', [ref as Value]);
+      const ref = this.evalInput(b, 'COMPONENT', scope);
+      if (!ref || typeof ref !== 'object' || !('kind' in ref) || ref.kind !== 'component')
+        throw typeError(b.mutation.property_name ?? b.mutation.method_name ?? 'component', [ref]);
       name = ref.name;
     }
     const c = this.components.get(name);
-    if (!c) throw new YailRuntimeError(`컴포넌트를 찾을 수 없습니다: ${name}`);
+    if (!c) throw new YailRuntimeError(`Cannot find the component: ${name}`, 'Problem with application');
     return c;
   }
 
   private getProperty(b: BlockNode, scope: Scope): Value {
     const c = this.target(b, scope);
     const prop = b.mutation.property_name;
-    if (!isSupportedProperty(c.type, prop)) this.warnOnce(`지원하지 않는 속성: ${c.name}.${prop}`);
+    if (!c.supports(prop) && !(c instanceof UnsupportedComp)) this.warnOnce(`지원하지 않는 속성: ${c.name}.${prop}`);
     return c.getProperty(prop);
   }
 
@@ -750,7 +792,8 @@ export class AppRuntime {
     const c = this.target(b, scope);
     const prop = b.mutation.property_name;
     const v = this.evalInput(b, 'VALUE', scope);
-    if (!isSupportedProperty(c.type, prop)) this.warnOnce(`지원하지 않는 속성: ${c.name}.${prop} (값은 저장되지만 화면에는 반영되지 않습니다)`);
+    if (!c.supports(prop) && !(c instanceof UnsupportedComp))
+      this.warnOnce(`지원하지 않는 속성: ${c.name}.${prop} (값은 저장되지만 화면에는 반영되지 않습니다)`);
     c.setProperty(prop, v);
   }
 
@@ -799,7 +842,12 @@ export class AppRuntime {
 
   /** 앱인벤터의 런타임 오류 대화상자와 비슷한 모양 */
   private showError(message: string) {
-    const host = this.phone;
+    this.showDialog({ title: 'Runtime Error', message, buttons: ['Dismiss'] }, () => {});
+  }
+
+  /** 폰 화면 위의 대화상자 (Notifier 대화상자, 런타임 오류) */
+  private showDialog(o: DialogOptions, done: (button: number, text: string) => void) {
+    const host = this.root;
     if (!host) return;
     this.dialog?.remove();
     const d = document.createElement('div');
@@ -807,30 +855,59 @@ export class AppRuntime {
     d.setAttribute('role', 'alertdialog');
     const box = document.createElement('div');
     box.className = 'rt-dialog-box';
-    const t = document.createElement('div');
-    t.className = 'rt-dialog-title';
-    t.textContent = 'Runtime Error';
+    if (o.title) {
+      const t = document.createElement('div');
+      t.className = 'rt-dialog-title';
+      t.textContent = o.title;
+      box.appendChild(t);
+    }
     const m = document.createElement('div');
     m.className = 'rt-dialog-msg';
-    m.textContent = message;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'Dismiss';
-    btn.addEventListener('click', () => {
-      d.remove();
-      this.dialog = null;
+    m.textContent = o.message;
+    box.appendChild(m);
+    let input: HTMLInputElement | null = null;
+    if (o.input) {
+      input = document.createElement('input');
+      input.type = o.input;
+      input.className = 'rt-dialog-input';
+      box.appendChild(input);
+    }
+    const row = document.createElement('div');
+    row.className = 'rt-dialog-buttons';
+    o.buttons.forEach((label, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        d.remove();
+        if (this.dialog === d) this.dialog = null;
+        done(i, input?.value ?? '');
+      });
+      row.appendChild(btn);
     });
-    box.append(t, m, btn);
+    box.appendChild(row);
     d.appendChild(box);
     host.appendChild(d);
     this.dialog = d;
+    input?.focus();
+  }
+
+  /** 폰 화면 전체를 덮는 화면 (목록 선택) */
+  private showOverlay(el: HTMLElement) {
+    const host = this.root;
+    if (!host) return () => {};
+    const wrap = document.createElement('div');
+    wrap.className = 'rt-overlay';
+    wrap.appendChild(el);
+    host.appendChild(wrap);
+    return () => wrap.remove();
   }
 
   /** Notifier.경고창보이기 */
   private toast(message: string) {
-    const host = this.phone;
+    const host = this.root;
     if (!host) return;
-    host.querySelector('.rt-toast')?.remove();
+    host.querySelector(':scope > .rt-toast')?.remove();
     const t = document.createElement('div');
     t.className = 'rt-toast';
     t.textContent = message;
@@ -858,5 +935,5 @@ const EXPRESSIONS = new Set([
   'lists_create_with', 'lists_select_item', 'lists_length', 'lists_is_empty', 'lists_pick_random_item', 'lists_is_in',
   'lists_position_in', 'lists_copy', 'lists_is_list', 'lists_reverse', 'lists_join_with_separator',
   'lexical_variable_get', 'local_declaration_expression', 'controls_choose', 'controls_do_then_return',
-  'component_component_block', 'procedures_callreturn', 'color_make_color',
+  'component_component_block', 'procedures_callreturn', 'color_make_color', 'controls_getStartValue', 'controls_getPlainStartText',
 ]);

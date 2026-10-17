@@ -15,7 +15,12 @@ export interface ComponentRef {
   name: string;
 }
 
-export type Value = number | string | boolean | YailList | ComponentRef | null;
+/** 시계의 시각(InstantInTime). 밀리초 */
+export class Instant {
+  constructor(public ms: number) {}
+}
+
+export type Value = number | string | boolean | YailList | ComponentRef | Instant | null;
 
 /** App Inventor 의 런타임 오류 (앱인벤터처럼 영어 메시지) */
 export class YailRuntimeError extends Error {
@@ -25,7 +30,7 @@ export class YailRuntimeError extends Error {
 }
 
 export const isList = (v: Value): v is YailList => v instanceof YailList;
-const isComponent = (v: Value): v is ComponentRef => typeof v === 'object' && v != null && !(v instanceof YailList) && v.kind === 'component';
+export const isComponent = (v: Value): v is ComponentRef => typeof v === 'object' && v != null && !(v instanceof YailList) && !(v instanceof Instant) && v.kind === 'component';
 
 /** padded-string->number: 앞뒤 공백을 지우고 Scheme 숫자로 읽을 수 있으면 숫자 */
 export function stringToNumber(s: string): number | null {
@@ -71,7 +76,14 @@ export function coerceToString(v: Value): string {
   if (typeof v === 'boolean') return v ? 'true' : 'false';
   if (isList(v)) return '[' + v.items.map(jsonDisplay).join(', ') + ']';
   if (isComponent(v)) return v.name;
+  if (v instanceof Instant) return formatInstant(v.ms);
   return String(v);
+}
+
+function formatInstant(ms: number) {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 /** get-json-display-representation */
@@ -93,6 +105,7 @@ export function yailEqual(a: Value, b: Value): boolean {
   }
   if (a === b) return true;
   if (isComponent(a) && isComponent(b)) return a.name === b.name;
+  if (a instanceof Instant && b instanceof Instant) return a.ms === b.ms;
   const na = asNumber(a);
   if (na == null) return false;
   const nb = asNumber(b);

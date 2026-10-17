@@ -2,7 +2,9 @@ import { parseAia } from '../aia/parse';
 import type { AiaProject, ComponentNode, ScreenData } from '../aia/types';
 import { createBlocksView, type BlocksView } from '../blocks/workspace';
 import { componentTypeName } from '../blocks/msg';
-import { AppRuntime, type LogEntry } from '../runtime/interpreter';
+import type { LogEntry } from '../runtime/interpreter';
+import { AppSession } from '../runtime/session';
+import type { Value } from '../runtime/values';
 import { NON_VISIBLE } from './preview';
 import { renderComponentTree } from './tree';
 import { setupLayout } from './layout';
@@ -11,11 +13,15 @@ import { setupLayout } from './layout';
 import oxUrl from '../samples/ox-quiz.aia?url';
 import rpsUrl from '../samples/rock-paper-scissors.aia?url';
 import fortuneUrl from '../samples/fortune.aia?url';
+import ballUrl from '../samples/ball-paint.aia?url';
+import fruitUrl from '../samples/fruit-memo.aia?url';
 
 const SAMPLES = [
   ['O/X 퀴즈', oxUrl, 'ox-quiz.aia'],
   ['가위바위보', rpsUrl, 'rock-paper-scissors.aia'],
   ['오늘의 운세', fortuneUrl, 'fortune.aia'],
+  ['공 튕기기', ballUrl, 'ball-paint.aia'],
+  ['과일 고르기', fruitUrl, 'fruit-memo.aia'],
 ] as const;
 
 interface Entry {
@@ -24,6 +30,8 @@ interface Entry {
   status: 'loading' | 'ok' | 'error';
   project?: AiaProject;
   error?: string;
+  /** TinyDB 저장 내용 (다시 실행해도 유지, 파일마다 따로) */
+  storage: Map<string, Map<string, Value>>;
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -38,7 +46,9 @@ export function startApp() {
   let assetUrls = new Map<string, string>();
   let assetsOwner: AiaProject | null = null;
   let blocks: BlocksView | null = null;
-  let runtime: AppRuntime | null = null;
+  let session: AppSession | null = null;
+  /** 실행을 시작한 스크린 */
+  let runStart: string | null = null;
   let logs: LogEntry[] = [];
 
   const fileList = $('#file-list');
@@ -109,7 +119,7 @@ export function startApp() {
     if (files.length > aias.length) toast(`.aia 가 아닌 파일 ${files.length - aias.length}개는 건너뛰었습니다.`);
     let first: Entry | null = null;
     for (const f of aias) {
-      const e: Entry = { id: ++seq, fileName: f.name, status: 'loading' };
+      const e: Entry = { id: ++seq, fileName: f.name, status: 'loading', storage: new Map() };
       entries.push(e);
       first ??= e;
       f.arrayBuffer()
@@ -166,8 +176,9 @@ export function startApp() {
   }
 
   function stopRuntime() {
-    runtime?.dispose();
-    runtime = null;
+    session?.dispose();
+    session = null;
+    phone.innerHTML = '';
   }
 
   function clearView() {
@@ -231,9 +242,14 @@ export function startApp() {
   }
 
   function showScreen(s: ScreenData) {
+    showBlocks(s);
+    runScreen(s);
+  }
+
+  /** 블록 칸과 컴포넌트 트리만 바꾼다 (실행 중인 앱이 다른 스크린을 열었을 때) */
+  function showBlocks(s: ScreenData) {
     treeBox.innerHTML = '';
     treeBox.appendChild(renderComponentTree(s.form));
-    runScreen(s);
     blocks ??= createBlocksView($('#blockly'));
     try {
       const { unknownTypes, blockCount } = blocks.show(s.bky);
@@ -251,6 +267,8 @@ export function startApp() {
   }
 
   function runScreen(s: ScreenData) {
+    const p = current?.project;
+    if (!p) return;
     stopRuntime();
     setLogs([]);
     const nv: string[] = [];
@@ -261,14 +279,29 @@ export function startApp() {
     if (s.form) walk(s.form);
     nonVisibleBox.textContent = nv.length ? '보이지 않는 컴포넌트: ' + nv.join(', ') : '';
     phoneTitle.textContent = s.form?.props.Title ?? s.name;
-    runtime = new AppRuntime({
-      screen: s,
+    // 첫 스크린부터가 아니라 고른 스크린부터 실행 (다른 스크린만 따로 확인할 때)
+    const screens = [s, ...p.screens.filter((x) => x !== s)];
+    session = new AppSession({
+      screens,
       container: phone,
       assetUrl: (n) => assetUrls.get(n),
+      storage: current!.storage,
       onLog: (e) => setLogs([...logs, e]),
       onTitle: (t) => (phoneTitle.textContent = t),
+      onScreenChange: (name) => {
+        if (name === currentScreen) return;
+        currentScreen = name;
+        const next = p.screens.find((x) => x.name === name);
+        renderScreenTabs(p);
+        if (next) showBlocks(next);
+      },
+      onExit: () => {
+        phone.innerHTML = '<div class="device-empty">앱이 종료되었습니다<br><small>다시 실행을 누르세요</small></div>';
+        phoneTitle.textContent = '';
+      },
     });
-    runtime.start();
+    runStart = s.name;
+    session.start(s.name);
   }
 
   function setLogs(next: LogEntry[]) {
@@ -300,9 +333,16 @@ export function startApp() {
   });
 
   $('#btn-restart').addEventListener('click', () => {
-    const s = current?.project?.screens.find((x) => x.name === currentScreen);
-    if (s) runScreen(s);
+    const p = current?.project;
+    // 다시 실행은 처음 고른 스크린(보통 Screen1)부터
+    const s = p?.screens.find((x) => x.name === runStart) ?? p?.screens[0];
+    if (s) {
+      currentScreen = s.name;
+      renderScreenTabs(p!);
+      showScreen(s);
+    }
   });
+  $('#btn-back').addEventListener('click', () => session?.back());
 
   function renderProjectInfo(p: AiaProject) {
     const rows: [string, string][] = [

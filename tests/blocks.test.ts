@@ -22,14 +22,30 @@ function ownText(b: Blockly.Block) {
 beforeAll(() => registerAiBlocks());
 
 describe('블록 렌더링 (한국어)', () => {
-  for (const f of ['ox-quiz.aia', 'rock-paper-scissors.aia', 'fortune.aia']) {
+  for (const f of ['ox-quiz.aia', 'rock-paper-scissors.aia', 'fortune.aia', 'ball-paint.aia', 'fruit-memo.aia']) {
     it(`${f}: 모든 블록 type 이 정의되어 있고 로딩 오류가 없다`, async () => {
       const p = await loadFixture(f);
-      const { ws, unknownTypes } = load(p.screens[0].bky!);
-      expect(unknownTypes).toEqual([]);
-      expect(ws.getAllBlocks(false).length).toBeGreaterThan(10);
+      for (const s of p.screens) {
+        const { ws, unknownTypes } = load(s.bky!);
+        expect(unknownTypes).toEqual([]);
+        expect(ws.getAllBlocks(false).length).toBeGreaterThan(5);
+      }
     });
   }
+
+  it('캔버스·스크린 블록 글자', async () => {
+    const ball = load((await loadFixture('ball-paint.aia')).screens[0].bky!).ws.getAllBlocks(false).map(ownText);
+    expect(ball).toContain('언제 캔버스1.드래그 시작X 시작Y 이전X 이전Y 현재X 현재Y 드래그된모든스프라이트 실행');
+    expect(ball).toContain('언제 공1.충돌했을때 다른 실행');
+    expect(ball).toContain('호출 캔버스1.원그리기 중심X 중심Y 반지름 채우기');
+    expect(ball).toContain('호출 공1.튕기기 모서리');
+    expect(ball).toContain('가져오기 현재X');
+    const fruit = (await loadFixture('fruit-memo.aia')).screens;
+    const s1 = load(fruit[0].bky!).ws.getAllBlocks(false).map(ownText);
+    expect(s1.some((t) => t.includes('다른 스크린 열기'))).toBe(true);
+    const s2 = load(fruit[1].bky!).ws.getAllBlocks(false).map(ownText);
+    expect(s2.some((t) => t.includes('시작 값') || t.includes('시작값'))).toBe(true);
+  });
 
   it('앱인벤터 한국어 화면과 같은 글자', async () => {
     const p = await loadFixture('ox-quiz.aia');

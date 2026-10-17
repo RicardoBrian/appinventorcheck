@@ -150,7 +150,7 @@ button { font: inherit; color: inherit; }
 .rt-dialog-box { background: #fff; width: 86%; padding: 16px 16px 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, .3); font-family: Roboto, sans-serif; }
 .rt-dialog-title { font-size: 17px; margin-bottom: 10px; }
 .rt-dialog-msg { font-size: 13px; color: #333; word-break: break-word; max-height: 240px; overflow: auto; }
-.rt-dialog-box button { display: block; margin: 12px 0 0 auto; background: none; border: none; color: #3f51b5; font-weight: 600; cursor: pointer; padding: 6px; }
+
 .rt-toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(50, 50, 50, .92); color: #fff; padding: 8px 14px; border-radius: 16px; font-size: 13px; z-index: 4; max-width: 85%; }
 
 /* ── 블록 칸 ── */
@@ -187,3 +187,34 @@ button { font: inherit; color: inherit; }
 @media (max-width: 760px) {
   .appbar-file { display: none; }
 }
+
+/* ── 실행기: 스크린 · 새 컴포넌트 ── */
+.rt-root { position: relative; flex: 1; display: flex; min-height: 100%; width: 100%; }
+.rt-root[hidden] { display: none !important; }
+.device-nav { flex: 0 0 auto; display: flex; justify-content: center; background: #f2f2f2; border-top: 1px solid #ddd; }
+.device-nav button { border: none; background: none; font-size: 15px; padding: 3px 24px; cursor: pointer; color: #555; }
+.device-nav button:hover { color: #000; }
+
+.ai-canvas { position: relative; overflow: hidden; width: 100%; flex: 0 0 auto; background-size: 100% 100%; user-select: none; }
+.ai-canvas > canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ai-sprite, .ai-ball { position: absolute; pointer-events: none; transform-origin: center center; }
+.ai-ball { border-radius: 50%; }
+.ai-arrangement.scroll { overflow: auto; }
+.ai-slider { margin: 6px 4px; }
+.ai-spinner { margin: 2px; padding: 4px; font: inherit; }
+.ai-switch { display: inline-flex; align-items: center; gap: 8px; padding: 4px; }
+.ai-switch input { appearance: none; width: 34px; height: 14px; border-radius: 7px; background: #9e9e9e; position: relative; cursor: pointer; margin: 0; }
+.ai-switch input::after { content: ''; position: absolute; top: -3px; left: -2px; width: 20px; height: 20px; border-radius: 50%; background: #f5f5f5; box-shadow: 0 1px 2px rgba(0,0,0,.4); transition: left .12s; }
+.ai-switch input:checked { background: #8fd18f; }
+.ai-switch input:checked::after { left: 16px; background: #4caf50; }
+
+.rt-dialog-input { width: 100%; margin-top: 10px; padding: 5px 2px; border: none; border-bottom: 2px solid #3f51b5; font: inherit; outline: none; }
+.rt-dialog-buttons { display: flex; justify-content: flex-end; gap: 4px; margin-top: 12px; }
+.rt-dialog-buttons button { background: none; border: none; color: #3f51b5; font-weight: 600; cursor: pointer; padding: 6px 8px; text-transform: uppercase; }
+.rt-overlay { position: absolute; inset: 0; background: #fff; z-index: 6; display: flex; flex-direction: column; }
+.rt-picker { display: flex; flex-direction: column; height: 100%; font-family: Roboto, 'Noto Sans KR', sans-serif; }
+.rt-picker-title { background: #3f51b5; color: #fff; padding: 10px 12px; font-size: 15px; }
+.rt-picker ul { list-style: none; margin: 0; padding: 0; flex: 1; overflow: auto; }
+.rt-picker li { padding: 12px 14px; border-bottom: 1px solid #eee; cursor: pointer; }
+.rt-picker li:hover { background: #f3f3f3; }
+.rt-picker > button { border: none; border-top: 1px solid #ddd; background: #fafafa; padding: 10px; cursor: pointer; }
