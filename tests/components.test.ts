@@ -215,4 +215,23 @@ describe('시계 · 슬라이더 · 스위치', () => {
     o.setProperty('FontSize', '20'); // 숫자로 읽히는 글자는 숫자로
     expect(o.getProperty('FontSize')).toBe(20);
   });
+
+  it('미디어 파일 블록으로 그림 바꾸기, 방향 선택지 블록으로 튕기기', async () => {
+    const p = await loadFixture('ball-paint.aia');
+    const set = (comp: string, type: string, prop: string, value: string) =>
+      `<block type="component_set_get"><mutation component_type="${type}" set_or_get="set" property_name="${prop}" is_generic="false" instance_name="${comp}"></mutation><field name="COMPONENT_SELECTOR">${comp}</field><field name="PROP">${prop}</field><value name="VALUE">${value}</value></block>`;
+    const bounce = `<block type="component_method"><mutation component_type="Ball" method_name="Bounce" is_generic="false" instance_name="공1"></mutation><field name="COMPONENT_SELECTOR">공1</field><value name="ARG0"><block type="helpers_dropdown"><mutation key="Direction"></mutation><field name="OPTION">North</field></block></value></block>`;
+    // 문장 블록들을 <next> 로 잇는다 (각 블록의 마지막 </block> 앞에 다음 블록을 넣음)
+    const chainOf = (...blocks: string[]): string =>
+      blocks.reduceRight((rest, b) => (rest ? b.slice(0, -'</block>'.length) + `<next>${rest}</next></block>` : b), '');
+    const init = `<block type="component_event"><mutation component_type="Form" is_generic="false" instance_name="Screen1" event_name="Initialize"></mutation><field name="COMPONENT_SELECTOR">Screen1</field><statement name="DO">${chainOf(
+      set('별', 'ImageSprite', 'Picture', '<block type="helpers_assets"><field name="ASSET">star.png</field></block>'),
+      set('공1', 'Ball', 'Heading', '<block type="math_number"><field name="NUM">30</field></block>'),
+      bounce,
+    )}</statement></block>`;
+    const app = run(p, `<xml xmlns="https://developers.google.com/blockly/xml">${init}</xml>`);
+    expect(app.rt.logs).toEqual([]);
+    expect(app.el('별').getAttribute('src')).toBe('asset:star.png');
+    expect(Number(app.rt.components.get('공1')!.props.Heading)).toBe(330); // 북쪽(1) 벽에 튕김: 360 - 30
+  });
 });

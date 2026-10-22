@@ -8,6 +8,7 @@ import { chain, parseBky, type BlockNode } from '../aia/bky';
 import type { ComponentNode, ScreenData } from '../aia/types';
 import { NON_VISIBLE } from '../ui/preview';
 import { eventParams } from '../blocks/componentInfo';
+import ko from '../i18n/ai-ko.json';
 import type { DialogOptions, RtComponent, RtContext } from './rt/base';
 import { CanvasComp, SpriteComp } from './rt/canvas';
 import { createComponent, UnsupportedComp } from './rt/registry';
@@ -26,6 +27,9 @@ import {
   type ComponentRef,
   type Value,
 } from './values';
+
+/** 선택지 드롭다운 블록의 실제 값 (components/common/*.java 의 OptionList) */
+const OPTION_LISTS = ko.optionLists as Record<string, Record<string, string | number>>;
 
 export type LogLevel = 'info' | 'warn' | 'error';
 export interface LogEntry {
@@ -706,6 +710,21 @@ export class AppRuntime {
         this.execChain(b.statements.STM ?? null, scope);
         return this.evalInput(b, 'VALUE', scope);
 
+      // 도우미 드롭다운
+      case 'helpers_assets':
+        return f.ASSET ?? b.mutation.value ?? '';
+      case 'helpers_screen_names':
+        return f.SCREEN ?? b.mutation.value ?? '';
+      case 'helpers_dropdown': {
+        const name = f.OPTION ?? b.mutation.value ?? '';
+        const list = OPTION_LISTS[b.mutation.key];
+        if (!list || !(name in list)) {
+          this.warnOnce(`알 수 없는 선택지: ${b.mutation.key}.${name}`);
+          return name;
+        }
+        return list[name];
+      }
+
       // 스크린
       case 'controls_getStartValue':
         return this.opts.startValue ?? '';
@@ -936,4 +955,5 @@ const EXPRESSIONS = new Set([
   'lists_position_in', 'lists_copy', 'lists_is_list', 'lists_reverse', 'lists_join_with_separator',
   'lexical_variable_get', 'local_declaration_expression', 'controls_choose', 'controls_do_then_return',
   'component_component_block', 'procedures_callreturn', 'color_make_color', 'controls_getStartValue', 'controls_getPlainStartText',
+  'helpers_assets', 'helpers_screen_names', 'helpers_dropdown',
 ]);

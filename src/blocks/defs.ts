@@ -762,6 +762,61 @@ def('color_split_color', COLOUR.COLOR, 'out', (b) => {
   b.appendValueInput('COLOR').appendField(M('LANG_COLOUR_SPLIT_COLOUR'));
 });
 
+// ───────────────────────────── 도우미 (helpers.js) ─────────────────────────────
+// Blockly.COLOUR_HELPERS = "#BF4343"
+const HELPERS = '#BF4343';
+/** 미디어 파일 이름 드롭다운. 값은 <field name="ASSET"> 또는 <mutation value="..."> */
+defs['helpers_assets'] = {
+  init(this: B) {
+    this.setColour(HELPERS);
+    shape(this, 'out');
+    this.appendDummyInput('INPUT').appendField(fixedDropdown(''), 'ASSET');
+  },
+  mutationToDom(this: B) {
+    const m = Blockly.utils.xml.createElement('mutation');
+    m.setAttribute('value', this.getFieldValue('ASSET') ?? '');
+    return m;
+  },
+  domToMutation(this: B, xml: Element) {
+    const v = xml.getAttribute('value');
+    if (v != null) this.setFieldValue(v, 'ASSET');
+  },
+};
+/** 스크린 이름 드롭다운 */
+defs['helpers_screen_names'] = {
+  init(this: B) {
+    this.setColour(HELPERS);
+    shape(this, 'out');
+    this.appendDummyInput().appendField(fixedDropdown(''), 'SCREEN');
+  },
+  mutationToDom(this: B) {
+    const m = Blockly.utils.xml.createElement('mutation');
+    m.setAttribute('value', this.getFieldValue('SCREEN') ?? '');
+    return m;
+  },
+  domToMutation(this: B, xml: Element) {
+    const v = xml.getAttribute('value');
+    if (v != null) this.setFieldValue(v, 'SCREEN');
+  },
+};
+/** 선택지 드롭다운 (방향, 정렬 등 OptionList). <mutation key="Direction"> + <field name="OPTION">North</field> */
+defs['helpers_dropdown'] = {
+  init(this: B) {
+    this.setColour(HELPERS);
+    shape(this, 'out');
+  },
+  mutationToDom(this: B) {
+    const m = Blockly.utils.xml.createElement('mutation');
+    m.setAttribute('key', this.key_ ?? '');
+    return m;
+  },
+  domToMutation(this: B, xml: Element) {
+    clearInputs(this);
+    this.key_ = xml.getAttribute('key') ?? '';
+    this.appendDummyInput().appendField(this.key_).appendField(fixedDropdown(xml.getAttribute('value') ?? ''), 'OPTION');
+  },
+};
+
 // ───────────────────────────── 변수 (lexical-variables.js) ─────────────────────────────
 def('global_declaration', COLOUR.VARIABLE, 'none', (b) => {
   b.appendValueInput('VALUE')

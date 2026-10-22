@@ -84,6 +84,23 @@ for (const src of [ode, info]) {
   }
 }
 
+// 드롭다운 블록(helpers_dropdown)의 선택지 값: components/common/*.java 의 OptionList enum
+const optionLists = {};
+const commonDir = path.join(ai, 'components/src/com/google/appinventor/components/common');
+if (fs.existsSync(commonDir)) {
+  for (const f of fs.readdirSync(commonDir)) {
+    const src = fs.readFileSync(path.join(commonDir, f), 'utf8');
+    const m = src.match(/public enum (\w+) implements OptionList<(\w+)>\s*\{([\s\S]*?);/);
+    if (!m) continue;
+    const options = {};
+    for (const e of m[3].matchAll(/(\w+)\(\s*("(?:[^"\\]|\\.)*"|-?[\d.]+[fFdDlL]?)/g)) {
+      const raw = e[2];
+      options[e[1]] = raw.startsWith('"') ? JSON.parse(raw) : Number(raw.replace(/[fFdDlL]$/, ''));
+    }
+    if (Object.keys(options).length) optionLists[m[1]] = options;
+  }
+}
+
 const result = {
   _source: 'mit-cml/appinventor-sources (Apache License 2.0). scripts/extract-i18n.mjs 로 생성됨. 직접 수정하지 말 것.',
   blockly,
@@ -92,6 +109,7 @@ const result = {
   methods: bySuffix(me, 'Methods'),
   params: bySuffix(me, 'Params'),
   properties: bySuffix(pr, 'Properties'),
+  optionLists,
 };
 
 const outFile = path.join(path.dirname(new URL(import.meta.url).pathname), '../src/i18n/ai-ko.json');

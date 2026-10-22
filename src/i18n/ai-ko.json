@@ -2767,5 +2767,299 @@
   "ZAngularVelocity": "ZAngularVelocity",
   "Z": "Z",
   "ZoomLevel": "줌레벨"
+ },
+ "optionLists": {
+  "BestFitModel": {
+   "Linear": "Linear",
+   "Quadratic": "Quadratic",
+   "Cubic": "Cubic",
+   "Exponential": "Exponential",
+   "Logarithmic": "Logarithmic"
+  },
+  "ButtonShape": {
+   "Default": 0,
+   "Rounded": 1,
+   "Rectangular": 2,
+   "Oval": 3
+  },
+  "ChartType": {
+   "Line": 0,
+   "Scatter": 1,
+   "Area": 2,
+   "Bar": 3,
+   "Pie": 4
+  },
+  "ColorSensorMode": {
+   "Reflected": "reflected",
+   "Ambient": "ambient",
+   "Color": "color"
+  },
+  "Direction": {
+   "North": 1,
+   "Northeast": 2,
+   "East": 3,
+   "Southeast": 4,
+   "South": -1,
+   "Southwest": -2,
+   "West": -3,
+   "Northwest": -4
+  },
+  "EndedStatus": {
+   "IncomingRejected": 1,
+   "IncomingEnded": 2,
+   "OutgoingEnded": 3
+  },
+  "FileAction": {
+   "PickExistingFile": "Pick Existing File",
+   "PickNewFile": "Pick New File",
+   "PickDirectory": "Pick Directory"
+  },
+  "FileType": {
+   "Any": "*/*",
+   "Audio": "audio/*",
+   "Image": "image/*",
+   "Video": "video/*"
+  },
+  "FontTypeface": {
+   "Default": "0",
+   "SansSerif": "1",
+   "Serif": "2",
+   "Monospace": "3"
+  },
+  "GyroSensorMode": {
+   "Angle": "angle",
+   "Rate": "rate"
+  },
+  "HorizontalAlignment": {
+   "Left": 1,
+   "Center": 3,
+   "Right": 2
+  },
+  "ImageAnimation": {
+   "Stop": "Stop",
+   "ScrollRightSlow": "ScrollRightSlow",
+   "ScrollRight": "ScrollRight",
+   "ScrollRightFast": "ScrollRightFast",
+   "ScrollLeftSlow": "ScrollLeftSlow",
+   "ScrollLeft": "ScrollLeft",
+   "ScrollLeftFast": "ScrollLeftFast"
+  },
+  "LOBFValues": {
+   "CorrCoef": "correlation coefficient",
+   "Slope": "slope",
+   "Yintercept": "Yintercept",
+   "Predictions": "predictions",
+   "AllValues": "all values",
+   "QuadraticCoefficient": "Quadratic Coefficient",
+   "LinearCoefficient": "slope",
+   "ExponentialCoefficient": "a",
+   "ExponentialBase": "b",
+   "LogarithmCoefficient": "b",
+   "LogarithmConstant": "a",
+   "XIntercepts": "Xintercepts",
+   "RSquared": "r^2"
+  },
+  "LayoutType": {
+   "MainText": 0,
+   "MainText_DetailText_Vertical": 1,
+   "MainText_DetailText_Horizontal": 2,
+   "Image_MainText": 3,
+   "Image_MainText_DetailText_Vertical": 4,
+   "ImageTop_MainText_DetailText": 5
+  },
+  "LineType": {
+   "Linear": 0,
+   "Curved": 1,
+   "Stepped": 2
+  },
+  "ListOrientation": {
+   "Vertical": 0,
+   "Horizontal": 1
+  },
+  "MapFeature": {
+   "Circle": "Circle",
+   "LineString": "LineString",
+   "Marker": "Marker",
+   "Polygon": "Polygon",
+   "Rectangle": "Rectangle"
+  },
+  "MapType": {
+   "Road": 1,
+   "Aerial": 2,
+   "Terrain": 3,
+   "Custom": 4
+  },
+  "NotifierLength": {
+   "Short": 0,
+   "Long": 1
+  },
+  "NxtMailbox": {
+   "Box1": 1,
+   "Box2": 2,
+   "Box3": 3,
+   "Box4": 4,
+   "Box5": 5,
+   "Box6": 6,
+   "Box7": 7,
+   "Box8": 8,
+   "Box9": 9,
+   "Box10": 10
+  },
+  "NxtMotorMode": {
+   "On": 0,
+   "Brake": 0,
+   "Regulated": 0,
+   "Coast": 0
+  },
+  "NxtMotorPort": {
+   "PortA": "A",
+   "PortB": "B",
+   "PortC": "C"
+  },
+  "NxtRegulationMode": {
+   "Disabled": 0,
+   "Speed": 0,
+   "Synchronization": 0
+  },
+  "NxtRunState": {
+   "Disabled": 0,
+   "Running": 0,
+   "RampUp": 0,
+   "RampDown": 0
+  },
+  "NxtSensorMode": {
+   "Raw": 0,
+   "Boolean": 0,
+   "TransitionCount": 0,
+   "PeriodCount": 0,
+   "Percentage": 0,
+   "RcxCelsius": 0,
+   "RcxFahrenheit": 0,
+   "RcxAngleSteps": 0
+  },
+  "NxtSensorPort": {
+   "Port1": "1",
+   "Port2": "2",
+   "Port3": "3",
+   "Port4": "4"
+  },
+  "NxtSensorType": {
+   "NoSensor": 0,
+   "Touch": 0,
+   "LightOn": 0,
+   "LightOff": 0,
+   "SoundDB": 0,
+   "SoundDBA": 0,
+   "ColorFull": 0,
+   "ColorRed": 0,
+   "ColorGreen": 0,
+   "ColorBlue": 0,
+   "ColorNone": 0,
+   "Digital12C": 0,
+   "Digital12C9V": 0,
+   "RcxTemperature": 0,
+   "RcxLight": 0,
+   "RcxAngle": 0
+  },
+  "Permission": {
+   "CoarseLocation": "ACCESS_COARSE_LOCATION",
+   "FineLocation": "ACCESS_FINE_LOCATION",
+   "MockLocation": "ACCESS_MOCK_LOCATION",
+   "LocationExtraCommands": "ACCESS_LOCATION_EXTRA_COMMANDS",
+   "ReadExternalStorage": "READ_EXTERNAL_STORAGE",
+   "WriteExternalStorage": "WRITE_EXTERNAL_STORAGE",
+   "Camera": "CAMERA",
+   "Audio": "RECORD_AUDIO",
+   "Vibrate": "VIBRATE",
+   "Internet": "INTERNET",
+   "NearFieldCommunication": "NFC",
+   "Bluetooth": "BLUETOOTH",
+   "BluetoothAdmin": "BLUETOOTH_ADMIN",
+   "WifiState": "ACCESS_WIFI_STATE",
+   "NetworkState": "ACCESS_NETWORK_STATE",
+   "AccountManager": "ACCOUNT_MANAGER",
+   "ManageAccounts": "MANAGE_ACCOUNTS",
+   "GetAccounts": "GET_ACCOUNTS",
+   "ReadContacts": "READ_CONTACTS",
+   "UseCredentials": "USE_CREDENTIALS",
+   "BluetoothAdvertise": "BLUETOOTH_ADVERTISE",
+   "BluetoothConnect": "BLUETOOTH_CONNECT",
+   "BluetoothScan": "BLUETOOTH_SCAN",
+   "ReadMediaImages": "READ_MEDIA_IMAGES",
+   "ReadMediaVideo": "READ_MEDIA_VIDEO",
+   "ReadMediaAudio": "READ_MEDIA_AUDIO"
+  },
+  "PointStyle": {
+   "Circle": 0,
+   "Square": 1,
+   "Triangle": 2,
+   "Cross": 3,
+   "X": 4
+  },
+  "ReceivingState": {
+   "Off": 1,
+   "Foreground": 2,
+   "Always": 3
+  },
+  "ScaleUnits": {
+   "Metric": 1,
+   "Imperial": 2
+  },
+  "ScreenAnimation": {
+   "Default": "default",
+   "Fade": "fade",
+   "Zoom": "zoom",
+   "SlideHorizontal": "slidehorizontal",
+   "SlideVertical": "slidevertical",
+   "None": "none"
+  },
+  "ScreenOrientation": {
+   "Unspecified": "unspecified",
+   "Landscape": "landscape",
+   "Portrait": "portrait",
+   "Sensor": "sensor",
+   "User": "user",
+   "Behind": "behind",
+   "NoSensor": "nosensor",
+   "FullSensor": "fullSensor",
+   "ReverseLandscape": "reverseLandscape",
+   "ReversePortrait": "reversePortrait",
+   "SensorLandscape": "sensorLandscape",
+   "SensorPortrait": "sensorPortrait"
+  },
+  "Sensitivity": {
+   "Weak": 1,
+   "Moderate": 2,
+   "Strong": 3
+  },
+  "StartedStatus": {
+   "Incoming": 1,
+   "Outgoing": 2
+  },
+  "StrokeStyle": {
+   "Solid": 1,
+   "Dashed": 2,
+   "Dotted": 3
+  },
+  "TextAlignment": {
+   "Left": 0,
+   "Center": 1,
+   "Right": 2
+  },
+  "TransportMethod": {
+   "Foot": "foot-walking",
+   "Car": "driving-car",
+   "Bicycle": "cycling-regular",
+   "Wheelchair": "wheelchair"
+  },
+  "UltrasonicSensorUnit": {
+   "Centimeters": "cm",
+   "Inches": "inch"
+  },
+  "VerticalAlignment": {
+   "Top": 1,
+   "Center": 2,
+   "Bottom": 3
+  }
  }
 }

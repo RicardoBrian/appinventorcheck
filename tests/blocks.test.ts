@@ -113,4 +113,19 @@ describe('블록 렌더링 (한국어)', () => {
     expect(m.outputConnection).toBeTruthy();
     expect(m.previousConnection).toBeFalsy();
   });
+
+  it('미디어·스크린·선택지 드롭다운 블록 (helpers)', () => {
+    const xml = `<xml xmlns="https://developers.google.com/blockly/xml">
+      <block type="component_set_get" x="0" y="0"><mutation component_type="ImageSprite" set_or_get="set" property_name="Picture" is_generic="false" instance_name="폭탄사진"></mutation><field name="COMPONENT_SELECTOR">폭탄사진</field><field name="PROP">Picture</field>
+        <value name="VALUE"><block type="helpers_assets"><field name="ASSET">bomb.png</field></block></value></block>
+      <block type="helpers_screen_names" x="0" y="100"><field name="SCREEN">Screen2</field></block>
+      <block type="helpers_dropdown" x="0" y="200"><mutation key="Direction"></mutation><field name="OPTION">North</field></block>
+    </xml>`;
+    const { ws, unknownTypes } = load(xml);
+    expect(unknownTypes).toEqual([]);
+    const texts = ws.getAllBlocks(false).map(ownText);
+    expect(texts).toContain('bomb.png');
+    expect(texts).toContain('Screen2');
+    expect(texts).toContain('Direction North');
+  });
 });
