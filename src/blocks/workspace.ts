@@ -56,10 +56,10 @@ export function createBlocksView(container: HTMLElement): BlocksView {
       if (!bky) return { unknownTypes: [], blockCount: 0 };
       const { dom, unknownTypes } = prepareBkyXml(bky);
       Blockly.Xml.domToWorkspace(dom, ws);
-      // 앱인벤터는 블록 좌표를 저장하지만 좌표가 없거나 모두 겹친 파일도 있어 확인
+      // 앱인벤터는 블록 좌표를 저장하지만, 좌표가 없어서 같은 자리에 겹친 블록이 있으면 세로로 정렬한다
       const tops = ws.getTopBlocks(false);
       const positions = new Set(tops.map((b) => `${Math.round(b.getRelativeToSurfaceXY().x)},${Math.round(b.getRelativeToSurfaceXY().y)}`));
-      if (tops.length > 1 && positions.size === 1) ws.cleanUp();
+      if (positions.size < tops.length) arrange(ws);
       fit();
       return { unknownTypes, blockCount: ws.getAllBlocks(false).length };
     },
@@ -68,7 +68,7 @@ export function createBlocksView(container: HTMLElement): BlocksView {
       ws.zoomCenter(step);
     },
     cleanUp() {
-      ws.cleanUp();
+      arrange(ws);
       fit();
     },
     resize() {
@@ -78,4 +78,18 @@ export function createBlocksView(container: HTMLElement): BlocksView {
       ws.dispose();
     },
   };
+}
+
+/**
+ * 맨 위 블록들을 세로로 한 줄 정렬.
+ * Blockly 의 workspace.cleanUp() 은 움직일 수 있는 블록만 옮기는데, 읽기 전용 작업공간의 블록은
+ * 움직일 수 없는 것으로 취급되어 아무 일도 하지 않으므로 직접 옮긴다.
+ */
+function arrange(ws: Blockly.WorkspaceSvg) {
+  let y = 0;
+  for (const b of ws.getTopBlocks(true)) {
+    const xy = b.getRelativeToSurfaceXY();
+    b.moveBy(-xy.x, y - xy.y);
+    y += b.getHeightWidth().height + 32;
+  }
 }
