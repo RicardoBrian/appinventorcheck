@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>앱인벤터 실행기</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='1' width='10' height='14' rx='2' fill='%23333'/%3E%3Crect x='5' y='3' width='6' height='8' fill='%23fff'/%3E%3C/svg%3E" />
+  </head>
+  <body class="student-page">
+    <div id="load-error" class="load-error">프로그램이 시작되지 않았습니다. 빌드된 index.html 을 여세요.</div>
+
+    <header class="appbar">
+      <span class="brand">앱인벤터 실행기</span>
+      <span class="appbar-file" id="current-file"></span>
+      <button id="btn-open" type="button" class="btn">파일 열기</button>
+      <input id="file-input" type="file" accept=".aia" hidden />
+    </header>
+
+    <main class="student">
+      <section class="student-run">
+        <div class="device">
+          <div class="device-status"><span>9:41</span></div>
+          <div id="phone-title" class="device-title"></div>
+          <div id="phone-screen" class="device-screen"></div>
+          <div class="device-nav"><button id="btn-back" type="button" title="휴대폰의 뒤로 버튼">◁</button></div>
+        </div>
+      </section>
+
+      <aside class="student-side">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button">
+          <strong>.aia 파일을 여기로 끌어오세요</strong>
+          <small>또는 클릭해서 고르기</small>
+        </div>
+        <button id="btn-restart" type="button" class="btn-wide" disabled>처음부터 다시 실행</button>
+
+        <div class="student-notes">
+          <div class="section-title">알림</div>
+          <ul id="log-list" class="log-list"></ul>
+        </div>
+
+        <div class="student-help">
+          <div class="section-title">사용 방법</div>
+          <ol>
+            <li>앱인벤터에서 <b>프로젝트 → 선택된 프로젝트 (.aia)를 내 컴퓨터로 내보내기</b></li>
+            <li>내려받은 .aia 파일을 이 화면으로 끌어다 놓기</li>
+            <li>블록을 고쳤으면 다시 내보내서 끌어다 놓기</li>
+          </ol>
+          <p>파일은 이 컴퓨터 밖으로 전송되지 않습니다. 확인용 실행기라서 일부 기능은 지원하지 않을 수 있습니다.</p>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/student.ts"></script>
+  </body>
+</html>

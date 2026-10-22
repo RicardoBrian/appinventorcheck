@@ -17,26 +17,30 @@ MIT App Inventor 프로젝트 파일(.aia)을 브라우저에서 열어
 
 ## 사용법
 
-### 그냥 쓰기 (설치 없음)
+### 주소 (페이지 두 개)
 
-저장소 맨 위의 **`index.html`**(또는 같은 내용의 `aiachecker.html`)이 완성된 프로그램입니다.
-내려받아 더블클릭하면 크롬/엣지에서 바로 열립니다. 프로그램·예제가 모두 이 파일 하나에 들어 있고 인터넷 연결도 필요 없습니다.
+| 주소 | 페이지 | 내용 |
+|---|---|---|
+| `https://도메인/` (예: ai2.kakainfo.com) | 학생용 실행기 | .aia 를 끌어다 놓으면 실행. 블록 보기·예제·채점 없음 (시험 때 써도 정답 예제가 노출되지 않음) |
+| `https://도메인/teacher/` | 교사용 aiachecker | 블록 보기, 여러 파일, 칸 조절, 예제, 실행 기록 |
+
+인터넷 없이 쓰려면 `aiachecker-student.html`(학생용), `aiachecker.html`(교사용)을 내려받아 더블클릭하면 됩니다.
 
 ### 배포
 
-- **빌드 없이 저장소를 그대로 배포** (GitHub Pages 등): 맨 위 `index.html` 이 그대로 동작합니다.
-- **빌드해서 배포** (Vercel·Netlify·Cloudflare Pages 등): 빌드 명령 `npm run build`, 출력 폴더 `dist`.
+- **빌드 없이 저장소를 그대로 배포** (GitHub Pages 등): 맨 위 `index.html` = 학생용, `teacher/index.html` = 교사용.
+- **빌드해서 배포** (Vercel·Netlify·Cloudflare Pages 등): 빌드 명령 `npm run build`, 출력 폴더 `dist`. 주소 구조는 같습니다.
 - **Firebase Hosting**: `firebase.json` 이 저장소 맨 위를 배포하도록 되어 있어 `firebase deploy` 만 하면 됩니다.
 
-> 개발용 원본 HTML 은 `app/index.html` 입니다. 코드를 고친 뒤에는 `npm run build` 를 해야 맨 위 `index.html` 이 갱신됩니다.
+> 개발용 원본 HTML 은 `app/index.html`(교사용), `app/student/index.html`(학생용)입니다. 코드를 고친 뒤에는 `npm run build` 를 해야 배포용 파일이 갱신됩니다.
 
 ### 개발
 
 ```bash
 npm install
-npm run dev        # 개발 서버 (http://localhost:5173/app/)
+npm run dev        # 개발 서버 (교사용 http://localhost:5173/app/ , 학생용 /app/student/)
 npm test           # 자동 테스트
-npm run build      # 한 파일로 빌드 → dist/index.html, index.html, aiachecker.html
+npm run build      # 두 페이지를 각각 한 파일로 빌드 → index.html·teacher/ (+ dist/), aiachecker*.html
 ```
 
 화면 왼쪽에 .aia 파일을 끌어다 놓거나 "예제" 링크(O/X 퀴즈, 가위바위보, 오늘의 운세)를 누르세요.
@@ -54,7 +58,7 @@ npm run build      # 한 파일로 빌드 → dist/index.html, index.html, aiach
 | `src/runtime/rt/` | 실행 중인 컴포넌트 (기본 화면 요소, 캔버스·스프라이트, 시계·소리·알림·TinyDB) |
 | `src/runtime/session.ts` | 스크린 여러 개 (열기·닫기·뒤로) |
 | `src/runtime/interpreter.ts` | 블록 인터프리터 |
-| `src/ui/` | 화면 (칸 나누기·크기 조절, 파일 목록, 폰 화면, 컴포넌트 트리) |
+| `src/ui/` | 화면: 교사용 `app.ts`(칸 나누기·크기 조절, 파일 목록, 블록), 학생용 `student.ts`(끌어다 놓기·실행만) |
 | `scripts/build-fixtures.mjs` | 테스트·예제용 .aia 5개 생성 → `tests/fixtures/`, `src/samples/` |
 | `scripts/extract-i18n.mjs` | appinventor-sources에서 한국어 메시지 추출 |
 

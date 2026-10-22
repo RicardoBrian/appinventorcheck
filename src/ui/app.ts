@@ -8,6 +8,7 @@ import type { Value } from '../runtime/values';
 import { NON_VISIBLE } from './preview';
 import { renderComponentTree } from './tree';
 import { setupLayout } from './layout';
+import { assetDataUrls, escapeHtml, toast } from './util';
 
 // 예제 파일은 빌드할 때 HTML 안에 data: URL 로 들어간다 (file:// 로 열어도 읽힘)
 import oxUrl from '../samples/ox-quiz.aia?url';
@@ -214,7 +215,7 @@ export function startApp() {
     if (assetsOwner !== p || changed || !currentScreen || !p.screens.some((s) => s.name === currentScreen)) {
       assetsOwner = p;
       // blob: URL 은 file:// 로 연 페이지에서 그림이 안 나오는 경우가 있어 data: URL 을 쓴다
-      assetUrls = new Map([...p.assets].map(([name, data]) => [name, `data:${mimeOf(name)};base64,${toBase64(data)}`]));
+      assetUrls = assetDataUrls(p);
       currentScreen = p.screens[0]?.name ?? null;
     }
     renderScreenTabs(p);
@@ -379,41 +380,4 @@ export function startApp() {
 
   renderList();
   clearView();
-}
-
-function mimeOf(name: string) {
-  const ext = name.split('.').pop()?.toLowerCase();
-  return (
-    {
-      png: 'image/png',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      gif: 'image/gif',
-      bmp: 'image/bmp',
-      webp: 'image/webp',
-      svg: 'image/svg+xml',
-      mp3: 'audio/mpeg',
-      wav: 'audio/wav',
-      ogg: 'audio/ogg',
-      m4a: 'audio/mp4',
-    } as Record<string, string>
-  )[ext ?? ''] ?? 'application/octet-stream';
-}
-
-function toBase64(data: Uint8Array) {
-  let bin = '';
-  for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode(...data.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-}
-
-function toast(msg: string) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
 }

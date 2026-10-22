@@ -1,0 +1,22 @@
+/* 학생용 실행 화면 */
+.student-page { overflow: auto; }
+.student { flex: 1; display: flex; gap: 0; min-height: 0; }
+.student-run { flex: 1; display: flex; justify-content: center; align-items: center; padding: 16px; background: #f3f3f3; min-width: 0; }
+.student-run .device { width: min(380px, 100%); height: min(720px, calc(100vh - 80px)); }
+.student-side { width: 320px; flex: 0 0 auto; background: #fff; border-left: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.student-side .dropzone { padding: 28px 12px; font-size: 14px; }
+.student-side .dropzone small { font-size: 12px; }
+.btn-wide { height: 34px; border: 1px solid var(--line-strong); border-radius: 3px; background: #fff; cursor: pointer; font-size: 14px; }
+.btn-wide:hover:not(:disabled) { background: #f0f0f0; }
+.btn-wide:disabled { color: #aaa; cursor: default; }
+.student-notes .section-title, .student-help .section-title { margin: 0 0 6px; }
+.student-notes .log-list { font-family: inherit; font-size: 13px; }
+.student-help { color: #555; font-size: 12px; line-height: 1.6; border-top: 1px solid #eee; padding-top: 10px; }
+.student-help ol { margin: 0 0 6px; padding-left: 18px; }
+.student-help p { margin: 0; color: var(--muted); }
+.device-empty .error { color: var(--error); }
+
+@media (max-width: 760px) {
+  .student { flex-direction: column; }
+  .student-side { width: auto; border-left: none; border-top: 1px solid var(--line); }
+}

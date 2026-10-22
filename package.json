@@ -4,7 +4,7 @@
   "description": "aiachecker: 앱인벤터 aia 뷰어 · 실행기 · 채점기 (브라우저 전용 정적 웹앱)",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/copy-build.mjs",
+    "build": "tsc && vite build --mode student && vite build --mode teacher && node scripts/copy-build.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "build:fixtures": "node scripts/build-fixtures.mjs",
